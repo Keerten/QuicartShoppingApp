@@ -78,6 +78,10 @@ const SignInView = ({ navigation }) => {
     navigation.navigate("SignUp");
   };
 
+  const onForgotPasswordClicked = () => {
+    navigation.navigate("ForgotPassword");
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign in to Quicart Account!</Text>
@@ -101,11 +105,17 @@ const SignInView = ({ navigation }) => {
         value={password}
         onChangeText={setPassword}
       />
+
       <Pressable style={styles.buttonStyle} onPress={onSignInClicked}>
         <Text style={styles.buttonTextStyle}>Sign In</Text>
       </Pressable>
-      <Pressable style={styles.buttonStyle} onPress={onSignUpClicked}>
-        <Text style={styles.buttonTextStyle}>Create a New Account</Text>
+
+      <Pressable style={styles.clearButtonStyle} onPress={onForgotPasswordClicked}>
+        <Text style={styles.clearButtonTextStyle}>Forgot Password?</Text>
+      </Pressable>
+
+      <Pressable style={styles.clearButtonStyle} onPress={onSignUpClicked}>
+        <Text style={styles.clearButtonTextStyle2}>Don't have an account? Sign Up</Text>
       </Pressable>
     </View>
   );
@@ -152,4 +162,15 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 20,
   },
+  clearButtonStyle: {
+    marginBottom: 20,
+  },
+  clearButtonTextStyle: {
+    color: "#007BFF",
+    fontSize: 16,
+  },
+  clearButtonTextStyle2: {
+    color: "#FFA500",
+    fontSize: 16,
+  }
 });

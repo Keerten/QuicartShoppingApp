@@ -5,6 +5,7 @@ import SignInView from "./Screens/SignInView"; // Sign-in screen
 import SignUpScreen from "./Screens/SignUpView"; // Sign-up screen
 import AddProduct from "./Screens/AddProduct"; // Add product screen
 import TabNavigator from "./TabNavigator"; // Tab navigator
+import ForgotPassword from "./Screens/ForgotPassword";
 
 const Stack = createStackNavigator();
 
@@ -24,6 +25,12 @@ const App = () => {
           name="SignUp"
           component={SignUpScreen}
           options={{ title: "Sign Up" }}
+        />
+
+        <Stack.Screen
+          name = "ForgotPassword"
+          component={ForgotPassword}
+          options={{title : "Forgot Password"}}
         />
 
         {/* AddProduct Screen */}
