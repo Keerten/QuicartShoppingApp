@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   TextInput,
@@ -6,13 +6,52 @@ import {
   StyleSheet,
   Pressable,
   Alert,
+  Switch,
 } from "react-native";
 import { auth } from "../Configs/FirebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SignInView = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    loadCredentials();
+  }, []);
+
+  const loadCredentials = async () => {
+    try {
+      const savedEmail = await AsyncStorage.getItem("email");
+      const savedPassword = await AsyncStorage.getItem("password");
+      if (savedEmail && savedPassword) {
+        setEmail(savedEmail);
+        setPassword(savedPassword);
+        setRememberMe(true);
+      }
+    } catch (error) {
+      console.log("Error loading credentials", error);
+    }
+  };
+
+  const saveCredentials = async () => {
+    if (rememberMe) {
+      try {
+        await AsyncStorage.setItem("email", email);
+        await AsyncStorage.setItem("password", password);
+      } catch (error) {
+        console.log("Error saving credentials", error);
+      }
+    } else {
+      try {
+        await AsyncStorage.removeItem("email");
+        await AsyncStorage.removeItem("password");
+      } catch (error) {
+        console.log("Error clearing credentials", error);
+      }
+    }
+  };
 
   const validateInputs = () => {
     if (!email.includes("@")) {
@@ -39,7 +78,8 @@ const SignInView = ({ navigation }) => {
         password
       );
       console.log("Successfully logged in:", userCredentials.user.email);
-      navigation.replace("Tabs"); // Use replace instead of navigate to avoid going back to sign-in
+      await saveCredentials();
+      navigation.replace("Tabs");
     } catch (error) {
       handleSignInError(error);
     }
@@ -106,16 +146,27 @@ const SignInView = ({ navigation }) => {
         onChangeText={setPassword}
       />
 
+      {/* Remember Me Toggle */}
+      <View style={styles.rememberMeContainer}>
+        <Text style={styles.rememberMeText}>Remember Me</Text>
+        <Switch value={rememberMe} onValueChange={setRememberMe} />
+      </View>
+
       <Pressable style={styles.buttonStyle} onPress={onSignInClicked}>
         <Text style={styles.buttonTextStyle}>Sign In</Text>
       </Pressable>
 
-      <Pressable style={styles.clearButtonStyle} onPress={onForgotPasswordClicked}>
+      <Pressable
+        style={styles.clearButtonStyle}
+        onPress={onForgotPasswordClicked}
+      >
         <Text style={styles.clearButtonTextStyle}>Forgot Password?</Text>
       </Pressable>
 
       <Pressable style={styles.clearButtonStyle} onPress={onSignUpClicked}>
-        <Text style={styles.clearButtonTextStyle2}>Don't have an account? Sign Up</Text>
+        <Text style={styles.clearButtonTextStyle2}>
+          Don't have an account? Sign Up
+        </Text>
       </Pressable>
     </View>
   );
@@ -172,5 +223,18 @@ const styles = StyleSheet.create({
   clearButtonTextStyle2: {
     color: "#FFA500",
     fontSize: 16,
-  }
+  },
+  rememberMeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    width: "100%",
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  rememberMeText: {
+    fontSize: 16,
+    color: "#333",
+    marginRight: 10,
+  },
 });
