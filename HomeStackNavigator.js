@@ -8,6 +8,7 @@ import Icon from "react-native-vector-icons/Ionicons";
 import { View, Pressable } from "react-native";
 import { auth } from "./Configs/FirebaseConfig";
 import { signOut } from "firebase/auth";
+import ViewAll from "./Screens/ViewAll";
 
 const Stack = createStackNavigator();
 
@@ -62,6 +63,13 @@ const HomeStackNavigator = () => {
         name="ProductDetails"
         component={ProductDetails}
         options={{ title: "Product Details" }}
+      />
+
+      {/* ViewAll Screen */}
+      <Stack.Screen
+        name="ViewAll"
+        component={ViewAll}
+        options={{ title: "View All" }}
       />
     </Stack.Navigator>
   );
