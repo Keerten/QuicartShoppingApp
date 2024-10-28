@@ -1,223 +1,192 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, Alert, ScrollView, ImageBackground } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { db } from '../../Configs/FirebaseConfig';
-import { collection, addDoc } from 'firebase/firestore';
+import React, { useState } from "react";
+import {
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  ScrollView,
+  Alert,
+} from "react-native";
+import { db } from "../../Configs/FirebaseConfig";
+import { collection, addDoc } from "firebase/firestore";
+import { Picker } from "@react-native-picker/picker";
+import sharedStyles from "./styles"; // Adjust path as necessary
 
 const Clothing = () => {
-  const [mainCategory, setMainCategory] = useState('Men');
-  const [clothingCategory, setClothingCategory] = useState('Shirt');
-  const [clothingName, setClothingName] = useState('');
-  const [inventory, setInventory] = useState({ S: '', M: '', L: '', XL: '', XXL: '' });
-  const [price, setPrice] = useState('');
-  const [description, setDescription] = useState('');
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [gender, setGender] = useState("Men");
+  const [clothingCategory, setClothingCategory] = useState("Shirt");
+  const [price, setPrice] = useState("");
+  const [inventory, setInventory] = useState({ S: "", M: "", L: "", XL: "" });
+  const [loading, setLoading] = useState(false);
 
   const clothingCategories = {
-    Men: ['Shirt', 'Pants', 'Jeans', 'Shorts', 'Jacket', 'Suit'],
-    Women: ['Dress', 'Skirt', 'Blouse', 'Pants', 'Leggings', 'Top'],
-    Kids: ['T-Shirt', 'Shorts', 'Dress', 'Pants', 'Jacket', 'Sweater'],
+    Men: ["Shirt", "Pants", "Jeans", "Shorts", "Jacket", "Suit"],
+    Women: ["Dress", "Skirt", "Blouse", "Pants", "Leggings", "Top"],
+    Kids: ["T-Shirt", "Shorts", "Dress", "Pants", "Jacket", "Sweater"],
   };
 
-  const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
-
   const handleSubmit = async () => {
-    if (!clothingName || !inventory.S || !inventory.M || !inventory.L || !inventory.XL || !inventory.XXL || !price || !description) {
-      Alert.alert('Error', 'Please fill all fields');
+    console.log("Submit button pressed");
+
+    if (!name || !description || !price) {
+      Alert.alert("Error", "Please fill all fields");
+      console.log("Validation error: All fields must be filled");
       return;
     }
 
+    const inventoryValues = Object.values(inventory);
+    if (inventoryValues.some((value) => isNaN(value) || parseInt(value) < 0)) {
+      Alert.alert("Error", "Inventory values must be non-negative numbers");
+      console.log("Validation error: Inventory values must be non-negative");
+      return;
+    }
+
+    if (isNaN(price) || parseFloat(price) < 0) {
+      Alert.alert("Error", "Price must be a non-negative number");
+      console.log("Validation error: Price must be a non-negative number");
+      return;
+    }
+
+    setLoading(true); // Show loading state
+    console.log("Preparing to add document to Firestore");
+
     try {
-      const categoryPath = `Product/Clothing/${mainCategory}`;
-      const uid = `${mainCategory}_${clothingCategory}_${Date.now()}`;
+      const categoryPath = `Clothing`; // Only use "Products" for the collection path
+      console.log("Category Path:", categoryPath);
 
-      await addDoc(collection(db, categoryPath), {
-        uid,
-        clothingCategory,
-        clothingName,
-        sizes: inventory,
-        price: parseFloat(price),
+      const productData = {
+        name,
         description,
-      });
+        category: "Clothing",
+        subCategory: clothingCategory,
+        gender,
+        price: parseFloat(price),
+        images: [],
+        inventory: {
+          S: parseInt(inventory.S),
+          M: parseInt(inventory.M),
+          L: parseInt(inventory.L),
+          XL: parseInt(inventory.XL),
+        },
+        uid: `${gender}_${clothingCategory}_${Date.now()}`,
+      };
 
-      Alert.alert('Success', 'Clothing item added successfully!');
-      setClothingName('');
-      setInventory({ S: '', M: '', L: '', XL: '', XXL: '' });
-      setPrice('');
-      setDescription('');
+      console.log("Product Data:", productData);
+
+      await addDoc(collection(db, categoryPath), productData); // Add document to the collection
+      console.log("Document successfully added!");
+
+      Alert.alert("Success", "Clothing item added successfully!");
+      resetForm();
     } catch (error) {
       console.error("Error adding document: ", error);
-      Alert.alert('Error', 'Could not add item. Please try again.');
+      Alert.alert("Error", "Could not add item. Please try again.");
+    } finally {
+      setLoading(false); // Hide loading state
+      console.log("Loading state reset");
     }
   };
 
+  const resetForm = () => {
+    console.log("Resetting form");
+    setName("");
+    setDescription("");
+    setPrice("");
+    setInventory({ S: "", M: "", L: "", XL: "" });
+    setGender("Men");
+    setClothingCategory("Shirt");
+  };
+
   return (
-    <ImageBackground 
-      source={{ uri: 'https://i.pinimg.com/564x/e8/c8/ef/e8c8ef9d9e9f8c292ad1c0c7de254f55.jpg' }} 
-      style={styles.background}
-    >
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.card}>
-          <Text style={styles.title}>Add Clothing Details</Text>
-
-          <Text style={styles.label}>Select Main Category:</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={mainCategory}
-              style={styles.picker}
-              onValueChange={(itemValue) => {
-                setMainCategory(itemValue);
-                setClothingCategory(clothingCategories[itemValue][0]);
-              }}
-            >
-              <Picker.Item label="Men" value="Men" />
-              <Picker.Item label="Women" value="Women" />
-              <Picker.Item label="Kids" value="Kids" />
-            </Picker>
-          </View>
-
-          <Text style={styles.label}>Select Clothing Type:</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={clothingCategory}
-              style={styles.picker}
-              onValueChange={(itemValue) => setClothingCategory(itemValue)}
-            >
-              {clothingCategories[mainCategory].map((category) => (
-                <Picker.Item key={category} label={category} value={category} />
-              ))}
-            </Picker>
-          </View>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Clothing Name"
-            value={clothingName}
-            onChangeText={setClothingName}
-            placeholderTextColor="#888"
-          />
-
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Description"
-            value={description}
-            onChangeText={setDescription}
-            placeholderTextColor="#888"
-            multiline={true}
-            numberOfLines={4}
-          />
-
-          {sizes.map((size) => (
-            <TextInput
-              key={size}
-              style={styles.input}
-              placeholder={`Inventory for ${size}`}
-              keyboardType="numeric"
-              value={inventory[size]}
-              onChangeText={(value) => setInventory({ ...inventory, [size]: value })}
-              placeholderTextColor="#888"
-            />
-          ))}
-
-          <TextInput
-            style={styles.input}
-            placeholder="Price"
-            keyboardType="numeric"
-            value={price}
-            onChangeText={setPrice}
-            placeholderTextColor="#888"
-          />
-
-          <Pressable style={styles.button} onPress={handleSubmit}>
-            <Text style={styles.buttonText}>Submit</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </ImageBackground>
+    <ScrollView contentContainerStyle={sharedStyles.container}>
+      <Text style={sharedStyles.title}>Add Clothing Product</Text>
+      <TextInput
+        style={sharedStyles.input}
+        onChangeText={setName}
+        value={name}
+        placeholder="Product Name"
+      />
+      <TextInput
+        style={sharedStyles.input}
+        onChangeText={setDescription}
+        value={description}
+        placeholder="Product Description"
+        multiline
+      />
+      <Text style={sharedStyles.label}>Gender :</Text>
+      <Picker
+        selectedValue={gender}
+        onValueChange={(itemValue) => {
+          setGender(itemValue);
+          setClothingCategory(clothingCategories[itemValue][0]);
+        }}
+      >
+        {Object.keys(clothingCategories).map((category) => (
+          <Picker.Item key={category} label={category} value={category} />
+        ))}
+      </Picker>
+      <Text style={sharedStyles.label}>Clothing Category:</Text>
+      <Picker
+        selectedValue={clothingCategory}
+        onValueChange={(itemValue) => {
+          setClothingCategory(itemValue);
+          console.log("Clothing Category selected:", itemValue);
+        }}
+      >
+        {clothingCategories[gender].map((category) => (
+          <Picker.Item key={category} label={category} value={category} />
+        ))}
+      </Picker>
+      <TextInput
+        style={sharedStyles.input}
+        onChangeText={setPrice}
+        value={price}
+        placeholder="Price"
+        keyboardType="numeric"
+      />
+      {["S", "M", "L", "XL"].map((size) => (
+        <TextInput
+          key={size}
+          style={sharedStyles.input}
+          onChangeText={(value) => {
+            setInventory((prev) => ({ ...prev, [size]: value }));
+          }}
+          value={inventory[size]}
+          placeholder={`Stock for size ${size}`}
+          keyboardType="numeric"
+        />
+      ))}
+      <Button
+        title={loading ? "Adding..." : "Add Product"}
+        onPress={handleSubmit}
+        disabled={loading}
+      />
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: 'cover',
-    backgroundColor: '#f5f5f5',
-  },
   container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
   },
-  card: {
-    backgroundColor: '#ffffffcc',
-    borderRadius: 20,
-    padding: 25,
-    width: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 6,
-  },
   title: {
-    fontSize: 26,
+    fontSize: 24,
+    fontWeight: "bold",
     marginBottom: 20,
-    color: '#333',
-    textAlign: 'center',
-    fontWeight: '600',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 15,
   },
   label: {
     fontSize: 16,
-    marginBottom: 5,
-    color: '#666',
-    fontWeight: '500',
-  },
-  pickerContainer: {
-    width: '100%',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 15,
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-    padding: 5,
-  },
-  input: {
-    width: '100%',
-    height: 50,
+    fontWeight: "bold",
     marginVertical: 10,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    backgroundColor: '#f8f8f8',
-    color: '#333',
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  button: {
-    backgroundColor: '#6AB7A8',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    shadowColor: '#6AB7A8',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
   },
 });
 

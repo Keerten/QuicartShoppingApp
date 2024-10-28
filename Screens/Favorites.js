@@ -48,12 +48,7 @@ const Favorites = ({ navigation }) => {
     >
       <Image source={{ uri: item.images[0] }} style={styles.favoriteImage} />
       <View style={styles.favoriteInfo}>
-        <Text style={styles.favoriteName}>
-          {item.clothingName ||
-            item.shoeName ||
-            item.jewelryName ||
-            item.productName}
-        </Text>
+        <Text style={styles.favoriteName}>{item.name}</Text>
         <Text style={styles.favoritePrice}>${item.price}</Text>
       </View>
     </Pressable>
@@ -66,14 +61,7 @@ const Favorites = ({ navigation }) => {
           data={favorites}
           renderItem={renderItem}
           // Instead of using `id`, use a unique combination of product fields
-          keyExtractor={(item) =>
-            `${
-              item.clothingName ||
-              item.shoeName ||
-              item.jewelryName ||
-              item.productName
-            }-${item.price}`
-          }
+          keyExtractor={(item) => `${item.name}-${item.price}`}
           contentContainerStyle={styles.favoritesList}
         />
       ) : (

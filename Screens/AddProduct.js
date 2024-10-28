@@ -1,13 +1,21 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
 const categories = [
   { name: "Clothing", screen: "Clothing", icon: "shirt-outline" },
   { name: "Shoes", screen: "Shoes", icon: "footsteps-outline" },
-  { name: "Beauty & Personal Care", screen: "BeautyAndPersonalCare", icon: "flower-outline" },
-  { name: "Health & Wellness", screen: "HealthAndWellness", icon: "fitness-outline" },
+  {
+    name: "Beauty & Personal Care",
+    screen: "BeautyPersonalCare",
+    icon: "flower-outline",
+  },
+  {
+    name: "Health & Wellness",
+    screen: "HealthWellness",
+    icon: "fitness-outline",
+  },
   { name: "Jewelry", screen: "Jewelry", icon: "diamond-outline" },
 ];
 
@@ -17,7 +25,7 @@ const AddProduct = ({ navigation }) => {
   };
 
   return (
-    <LinearGradient colors={['#e0f7fa', '#ffffff']} style={styles.container}>
+    <LinearGradient colors={["#e0f7fa", "#ffffff"]} style={styles.container}>
       <Text style={styles.title}>Add Your Product</Text>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.grid}>
@@ -26,11 +34,16 @@ const AddProduct = ({ navigation }) => {
               key={category.name}
               style={({ pressed }) => [
                 styles.button,
-                { backgroundColor: pressed ? '#0097a7' : '#00bcd4' },
+                { backgroundColor: pressed ? "#0097a7" : "#00bcd4" },
               ]}
               onPress={() => handleCategoryPress(category.screen)}
             >
-              <Ionicons name={category.icon} size={32} color="#ffffff" style={styles.icon} />
+              <Ionicons
+                name={category.icon}
+                size={32}
+                color="#ffffff"
+                style={styles.icon}
+              />
               <Text style={styles.buttonText}>{category.name}</Text>
             </Pressable>
           ))}

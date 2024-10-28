@@ -33,96 +33,62 @@ const ProductList = () => {
         const healthData = [];
         const beautyData = [];
 
-        // Fetch Clothing data for Men, Women, and Kids
-        const clothingCategories = ["Men", "Women", "Kids"];
-        for (const category of clothingCategories) {
-          const clothingSnapshot = await getDocs(
-            collection(db, `Product/Clothing/${category}`)
-          );
-          clothingSnapshot.forEach((doc) => {
-            const data = doc.data();
-            clothesData.push({
-              ...data,
-              category: "Clothing",
-              gender: category,
-              uid: doc.id,
-            });
+        // Fetch Clothing data
+        const clothingSnapshot = await getDocs(collection(db, "Clothing"));
+        clothingSnapshot.forEach((doc) => {
+          const data = doc.data();
+          clothesData.push({
+            ...data,
+            category: "Clothing",
+            uid: doc.id,
           });
-        }
+        });
 
-        // Fetch Shoes data for Men, Women, and Kids
-        const shoeCategories = ["Men", "Women", "Kids"];
-        for (const category of shoeCategories) {
-          const shoesSnapshot = await getDocs(
-            collection(db, `Product/Shoes/${category}`)
-          );
-          shoesSnapshot.forEach((doc) => {
-            const data = doc.data();
-            shoesData.push({
-              ...data,
-              category: "Shoes",
-              gender: category,
-              uid: doc.id,
-            });
+        // Fetch Shoes data
+        const shoesSnapshot = await getDocs(collection(db, "Shoes"));
+        shoesSnapshot.forEach((doc) => {
+          const data = doc.data();
+          shoesData.push({
+            ...data,
+            category: "Shoes",
+            uid: doc.id,
           });
-        }
+        });
 
         // Fetch Jewelry data
-        const jewelryCategories = ["Bangle", "Bracelet", "Necklace"];
-        for (const category of jewelryCategories) {
-          const jewelrySnapshot = await getDocs(
-            collection(db, `Product/Jewelry/${category}`)
-          );
-          jewelrySnapshot.forEach((doc) => {
-            const data = doc.data();
-            jewelryData.push({
-              ...data,
-              category: "Jewelry",
-              jewelryCategory: category,
-              uid: doc.id,
-            });
+        const jewelrySnapshot = await getDocs(collection(db, "Jewelry"));
+        jewelrySnapshot.forEach((doc) => {
+          const data = doc.data();
+          jewelryData.push({
+            ...data,
+            category: "Jewelry",
+            uid: doc.id,
           });
-        }
+        });
 
         // Fetch Health & Wellness data
-        const healthCategories = ["Exercise Equipment", "Massaging Devices"];
-        for (const category of healthCategories) {
-          const healthSnapshot = await getDocs(
-            collection(db, `Product/HealthWellness/${category}`)
-          );
-          healthSnapshot.forEach((doc) => {
-            const data = doc.data();
-            healthData.push({
-              ...data,
-              category: "Health & Wellness",
-              subCategory: category.replace(/([A-Z])/g, " "),
-              uid: doc.id,
-            });
+        const healthSnapshot = await getDocs(collection(db, "HealthWellness"));
+        healthSnapshot.forEach((doc) => {
+          const data = doc.data();
+          healthData.push({
+            ...data,
+            category: "Health & Wellness",
+            uid: doc.id,
           });
-        }
+        });
 
-        // Fetch Beauty Products data
-        const beautyCategories = [
-          "Brushes",
-          "Haircare",
-          "Skincare",
-          "Nails",
-          "Makeup",
-        ];
-        for (const category of beautyCategories) {
-          const beautySnapshot = await getDocs(
-            collection(db, `Product/BeautyPersonalCare/${category}`)
-          );
-          beautySnapshot.forEach((doc) => {
-            const data = doc.data();
-            beautyData.push({
-              ...data,
-              category: "Beauty & Personal Care",
-              subCategory: category.replace(/([A-Z])/g, " "),
-              uid: doc.id,
-            });
+        // Fetch Beauty & Personal Care data
+        const beautySnapshot = await getDocs(
+          collection(db, "BeautyPersonalCare")
+        );
+        beautySnapshot.forEach((doc) => {
+          const data = doc.data();
+          beautyData.push({
+            ...data,
+            category: "Beauty & Personal Care",
+            uid: doc.id,
           });
-        }
+        });
 
         setClothes(clothesData);
         setShoes(shoesData);
@@ -148,12 +114,7 @@ const ProductList = () => {
         style={styles.productImage}
       />
       <View style={styles.productInfo}>
-        <Text style={styles.productName}>
-          {item.clothingName ||
-            item.shoeName ||
-            item.jewelryName ||
-            item.productName}
-        </Text>
+        <Text style={styles.productName}>{item.name}</Text>
         <Text style={styles.productPrice}>${item.price}</Text>
       </View>
     </Pressable>
