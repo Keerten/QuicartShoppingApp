@@ -148,12 +148,7 @@ const Cart = () => {
             <View key={item.id} style={styles.cartItem}>
               <Image source={{ uri: item.images[0] }} style={styles.image} />
               <View style={styles.itemDetails}>
-                <Text style={styles.itemName}>
-                  {item.clothingName ||
-                    item.shoeName ||
-                    item.productName ||
-                    item.jewelryName}
-                </Text>
+                <Text style={styles.itemName}>{item.name}</Text>
                 {/* Display size only for clothing and shoes */}
                 {item.category === "Clothing" || item.category === "Shoes" ? (
                   <Text style={styles.itemSize}>Size: {item.size}</Text>

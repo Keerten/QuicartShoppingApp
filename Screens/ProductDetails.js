@@ -22,17 +22,17 @@ import Ionicons from "react-native-vector-icons/Ionicons"; // For favorite icon
 
 const { width } = Dimensions.get("window");
 
+// Size configurations for the products
 const sizeConfigurations = {
   clothing: {
-    order: ["S", "M", "L", "XL", "XXL"],
+    order: ["S", "M", "L", "XL"],
   },
   shoes: {
-    order: ["7", "8", "9", "10", "11", "12"],
+    order: ["7", "8", "9", "10"],
   },
 };
 
-// ProductDetails Component
-const ProductDetails = ({ route }) => {
+const ProductDetails = ({ route, navigation }) => {
   const { product } = route.params;
   const [selectedSize, setSelectedSize] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -41,32 +41,22 @@ const ProductDetails = ({ route }) => {
   const auth = getAuth();
   const user = auth.currentUser;
 
-  // Determine category
-  const category = product.clothingName
-    ? "clothing"
-    : product.shoeName
-    ? "shoes"
-    : product.jewelryName
-    ? "jewelry"
-    : product.healthWellnessName
-    ? "healthwellness"
-    : product.beautyPersonalCareName
-    ? "beautypersonalcare"
-    : null;
+  const category = product.category;
+  const subcategory = product.subCategory || ""; // Assuming subcategory exists in the product data
+  const gender = product.gender || "";
 
-  const sizeConfig = sizeConfigurations[category];
-  const availableSizes =
-    product.sizes && typeof product.sizes === "object"
-      ? sizeConfig?.order.filter((size) => product.sizes[size] > 0)
-      : [];
+  useEffect(() => {
+    const title = `${gender ? `${gender}'s` : ""} ${category} ${
+      subcategory ? `- ${subcategory}` : ""
+    }`;
+    navigation.setOptions({
+      headerTitle: title,
+    });
+  }, [navigation, gender, category, subcategory]);
 
   const checkIfFavorite = async () => {
     try {
-      const productId =
-        product.clothingName ||
-        product.shoeName ||
-        product.jewelryName ||
-        product.productName;
+      const productId = product.name;
       const docRef = doc(db, "userProfile", user.uid, "favorites", productId);
       const docSnap = await getDoc(docRef);
 
@@ -95,10 +85,10 @@ const ProductDetails = ({ route }) => {
 
   const handleSizeSelection = (size) => {
     setSelectedSize(size);
-    setAvailableStock(product.sizes[size]);
+    setAvailableStock(product.inventory[size]);
     setQuantity(1); // Reset quantity to 1 when size changes
     console.log(
-      `Size selected: ${size}, Available Stock: ${product.sizes[size]}`
+      `Size selected: ${size}, Available Stock: ${product.inventory[size]}`
     );
   };
 
@@ -108,7 +98,7 @@ const ProductDetails = ({ route }) => {
       return;
     }
 
-    if ((category === "clothing" || category === "shoes") && !selectedSize) {
+    if ((category === "Clothing" || category === "Shoes") && !selectedSize) {
       console.error("No size selected.");
       return;
     }
@@ -130,14 +120,7 @@ const ProductDetails = ({ route }) => {
       const cartRef = collection(db, "userProfile", user.uid, "cart");
       // Using setDoc with a unique identifier
       await setDoc(doc(cartRef), productToAdd); // This assumes you're okay with overwriting any existing document with the same ID
-      console.log(
-        `Product added to cart successfully: ${
-          productToAdd.clothingName ||
-          productToAdd.shoeName ||
-          productToAdd.jewelryName ||
-          productToAdd.productName
-        }`
-      );
+      console.log(`Product added to cart successfully: ${productToAdd.name}`);
     } catch (error) {
       console.error("Error adding product to cart:", error);
     }
@@ -145,11 +128,7 @@ const ProductDetails = ({ route }) => {
 
   const toggleFavorite = async () => {
     try {
-      const productId =
-        product.clothingName ||
-        product.shoeName ||
-        product.jewelryName ||
-        product.productName;
+      const productId = product.name;
       if (!productId) {
         console.error("Product ID is missing.");
         return;
@@ -193,12 +172,7 @@ const ProductDetails = ({ route }) => {
 
       <View style={styles.detailsContainer}>
         <View style={styles.header}>
-          <Text style={styles.name}>
-            {product.clothingName ||
-              product.shoeName ||
-              product.jewelryName ||
-              product.productName}
-          </Text>
+          <Text style={styles.name}>{product.name}</Text>
           <Pressable onPress={toggleFavorite} style={styles.favoriteButton}>
             <Ionicons
               name={isFavorite ? "heart" : "heart-outline"}
@@ -210,41 +184,43 @@ const ProductDetails = ({ route }) => {
         <Text style={styles.price}>${product.price}</Text>
         <Text style={styles.description}>{product.description}</Text>
 
-        {(category === "clothing" || category === "shoes") && (
+        {(category === "Clothing" || category === "Shoes") && (
           <>
             <Text style={styles.sizes}>Available Sizes:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {sizeConfig?.order.map((size, index) => {
-                const isAvailable = product.sizes[size] > 0;
-                return (
-                  <Pressable
-                    key={index}
-                    style={[
-                      styles.sizeButton,
-                      selectedSize === size && styles.selectedSize,
-                      !isAvailable && styles.disabledButton,
-                    ]}
-                    onPress={() => {
-                      if (isAvailable) {
-                        handleSizeSelection(size);
-                      } else {
-                        console.log(`Size ${size} is not available.`);
-                      }
-                    }}
-                    disabled={!isAvailable}
-                  >
-                    <Text
+              {sizeConfigurations[category.toLowerCase()].order.map(
+                (size, index) => {
+                  const isAvailable = product.inventory[size] > 0; // Check if the size is available
+                  return (
+                    <Pressable
+                      key={index}
                       style={[
-                        styles.sizeText,
-                        selectedSize === size && styles.selectedText,
-                        !isAvailable && styles.disabledText,
+                        styles.sizeButton,
+                        selectedSize === size && styles.selectedSize,
+                        !isAvailable && styles.disabledButton,
                       ]}
+                      onPress={() => {
+                        if (isAvailable) {
+                          handleSizeSelection(size);
+                        } else {
+                          console.log(`Size ${size} is not available.`);
+                        }
+                      }}
+                      disabled={!isAvailable}
                     >
-                      {size}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Text
+                        style={[
+                          styles.sizeText,
+                          selectedSize === size && styles.selectedText,
+                          !isAvailable && styles.disabledText,
+                        ]}
+                      >
+                        {size}
+                      </Text>
+                    </Pressable>
+                  );
+                }
+              )}
             </ScrollView>
 
             {selectedSize && (
@@ -256,12 +232,7 @@ const ProductDetails = ({ route }) => {
         )}
 
         {/* Quantity Selector - Hide for clothing and shoes unless size is selected */}
-        {(!category ||
-          category === "jewelry" ||
-          category === "healthwellness" ||
-          category === "beautypersonalcare" ||
-          ((category === "clothing" || category === "shoes") &&
-            selectedSize)) && (
+        {(category !== "Clothing" && category !== "Shoes") || selectedSize ? (
           <View style={styles.quantitySelector}>
             <Text style={styles.quantityLabel}>Quantity:</Text>
 
@@ -271,7 +242,6 @@ const ProductDetails = ({ route }) => {
               onPress={() => {
                 const newQuantity = Math.max(1, quantity - 1);
                 setQuantity(newQuantity);
-                console.log(`Quantity decreased: ${newQuantity}`);
               }}
               disabled={quantity === 1} // Disable when quantity is 1
             >
@@ -291,12 +261,10 @@ const ProductDetails = ({ route }) => {
             {/* Plus Button */}
             <Pressable
               style={styles.quantityButton}
-              onPress={() => {
-                const newQuantity = Math.min(availableStock, quantity + 1);
-                setQuantity(newQuantity);
-                console.log(`Quantity increased: ${newQuantity}`);
-              }}
-              disabled={quantity >= availableStock} // Disable if quantity reaches available stock
+              onPress={() =>
+                setQuantity(Math.min(availableStock, quantity + 1))
+              }
+              disabled={quantity >= availableStock}
             >
               <Text
                 style={[
@@ -308,18 +276,18 @@ const ProductDetails = ({ route }) => {
               </Text>
             </Pressable>
           </View>
-        )}
+        ) : null}
 
         <Pressable
           style={[
             styles.button,
-            (category === "clothing" || category === "shoes") &&
+            (category === "Clothing" || category === "Shoes") &&
               !selectedSize &&
               styles.disabledButton,
           ]}
           onPress={handleAddToCart}
           disabled={
-            (category === "clothing" || category === "shoes") && !selectedSize
+            (category === "Clothing" || category === "Shoes") && !selectedSize
           }
         >
           <Text style={styles.buttonText}>Add to Cart</Text>
@@ -364,6 +332,7 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 16,
     color: "#666",
+    marginVertical: 10,
   },
   sizes: {
     fontSize: 18,
@@ -420,18 +389,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   button: {
-    padding: 15,
+    paddingVertical: 15,
     backgroundColor: "#000",
     borderRadius: 5,
     alignItems: "center",
     marginTop: 20,
   },
   buttonText: {
-    fontSize: 18,
     color: "#fff",
+    fontSize: 18,
   },
   favoriteButton: {
-    padding: 10,
+    marginLeft: 10,
   },
 });
 

@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Image,
   ScrollView,
-  Platform,
   Pressable,
   SafeAreaView,
 } from "react-native";
@@ -33,96 +32,62 @@ const ProductList = () => {
         const healthData = [];
         const beautyData = [];
 
-        // Fetch Clothing data for Men, Women, and Kids
-        const clothingCategories = ["Men", "Women", "Kids"];
-        for (const category of clothingCategories) {
-          const clothingSnapshot = await getDocs(
-            collection(db, `Product/Clothing/${category}`)
-          );
-          clothingSnapshot.forEach((doc) => {
-            const data = doc.data();
-            clothesData.push({
-              ...data,
-              category: "Clothing",
-              gender: category,
-              uid: doc.id,
-            });
+        // Fetch Clothing data
+        const clothingSnapshot = await getDocs(collection(db, "Clothing"));
+        clothingSnapshot.forEach((doc) => {
+          const data = doc.data();
+          clothesData.push({
+            ...data,
+            category: "Clothing",
+            uid: doc.id,
           });
-        }
+        });
 
-        // Fetch Shoes data for Men, Women, and Kids
-        const shoeCategories = ["Men", "Women", "Kids"];
-        for (const category of shoeCategories) {
-          const shoesSnapshot = await getDocs(
-            collection(db, `Product/Shoes/${category}`)
-          );
-          shoesSnapshot.forEach((doc) => {
-            const data = doc.data();
-            shoesData.push({
-              ...data,
-              category: "Shoes",
-              gender: category,
-              uid: doc.id,
-            });
+        // Fetch Shoes data
+        const shoesSnapshot = await getDocs(collection(db, "Shoes"));
+        shoesSnapshot.forEach((doc) => {
+          const data = doc.data();
+          shoesData.push({
+            ...data,
+            category: "Shoes",
+            uid: doc.id,
           });
-        }
+        });
 
         // Fetch Jewelry data
-        const jewelryCategories = ["Bangle", "Bracelet", "Necklace"];
-        for (const category of jewelryCategories) {
-          const jewelrySnapshot = await getDocs(
-            collection(db, `Product/Jewelry/${category}`)
-          );
-          jewelrySnapshot.forEach((doc) => {
-            const data = doc.data();
-            jewelryData.push({
-              ...data,
-              category: "Jewelry",
-              jewelryCategory: category,
-              uid: doc.id,
-            });
+        const jewelrySnapshot = await getDocs(collection(db, "Jewelry"));
+        jewelrySnapshot.forEach((doc) => {
+          const data = doc.data();
+          jewelryData.push({
+            ...data,
+            category: "Jewelry",
+            uid: doc.id,
           });
-        }
+        });
 
         // Fetch Health & Wellness data
-        const healthCategories = ["Exercise Equipment", "Massaging Devices"];
-        for (const category of healthCategories) {
-          const healthSnapshot = await getDocs(
-            collection(db, `Product/HealthWellness/${category}`)
-          );
-          healthSnapshot.forEach((doc) => {
-            const data = doc.data();
-            healthData.push({
-              ...data,
-              category: "Health & Wellness",
-              subCategory: category.replace(/([A-Z])/g, " "),
-              uid: doc.id,
-            });
+        const healthSnapshot = await getDocs(collection(db, "HealthWellness"));
+        healthSnapshot.forEach((doc) => {
+          const data = doc.data();
+          healthData.push({
+            ...data,
+            category: "HealthWellness",
+            uid: doc.id,
           });
-        }
+        });
 
-        // Fetch Beauty Products data
-        const beautyCategories = [
-          "Brushes",
-          "Haircare",
-          "Skincare",
-          "Nails",
-          "Makeup",
-        ];
-        for (const category of beautyCategories) {
-          const beautySnapshot = await getDocs(
-            collection(db, `Product/BeautyPersonalCare/${category}`)
-          );
-          beautySnapshot.forEach((doc) => {
-            const data = doc.data();
-            beautyData.push({
-              ...data,
-              category: "Beauty & Personal Care",
-              subCategory: category.replace(/([A-Z])/g, " "),
-              uid: doc.id,
-            });
+        // Fetch Beauty & Personal Care data
+        const beautySnapshot = await getDocs(
+          collection(db, "BeautyPersonalCare")
+        );
+        beautySnapshot.forEach((doc) => {
+          const data = doc.data();
+          beautyData.push({
+            ...data,
+            category: "BeautyPersonalCare",
+            uid: doc.id,
           });
-        }
+        });
 
         setClothes(clothesData);
         setShoes(shoesData);
@@ -148,15 +113,33 @@ const ProductList = () => {
         style={styles.productImage}
       />
       <View style={styles.productInfo}>
-        <Text style={styles.productName}>
-          {item.clothingName ||
-            item.shoeName ||
-            item.jewelryName ||
-            item.productName}
-        </Text>
+        <Text style={styles.productName}>{item.name}</Text>
         <Text style={styles.productPrice}>${item.price}</Text>
       </View>
     </Pressable>
+  );
+
+  const handleViewAll = (category, products) => {
+    navigation.navigate("ViewAll", { category, products });
+  };
+
+  const renderCategorySection = (title, data) => (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <Pressable onPress={() => handleViewAll(title, data)}>
+          <Text style={styles.viewAllButton}>View All</Text>
+        </Pressable>
+      </View>
+      <FlatList
+        data={data}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.uid}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.flatListHorizontal}
+      />
+    </View>
   );
 
   if (loading) {
@@ -171,75 +154,15 @@ const ProductList = () => {
     <SafeAreaView style={styles.safeAreaContainer}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
-          {/* Welcome message */}
           <Text style={styles.welcomeMessage}>
             Welcome to Quicart Shopping App!
           </Text>
 
-          {/* Clothing Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Clothes</Text>
-            <FlatList
-              data={clothes}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.uid}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.flatListHorizontal}
-            />
-          </View>
-
-          {/* Shoes Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Shoes</Text>
-            <FlatList
-              data={shoes}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.uid}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.flatListHorizontal}
-            />
-          </View>
-
-          {/* Jewelry Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Jewelry</Text>
-            <FlatList
-              data={jewelry}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.uid}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.flatListHorizontal}
-            />
-          </View>
-
-          {/* Health & Wellness Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Health & Wellness</Text>
-            <FlatList
-              data={healthProducts}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.uid}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.flatListHorizontal}
-            />
-          </View>
-
-          {/* Beauty & Personal Care Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Beauty & Personal Care</Text>
-            <FlatList
-              data={beautyProducts}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.uid}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.flatListHorizontal}
-            />
-          </View>
+          {renderCategorySection("Clothes", clothes)}
+          {renderCategorySection("Shoes", shoes)}
+          {renderCategorySection("Jewelry", jewelry)}
+          {renderCategorySection("Health & Wellness", healthProducts)}
+          {renderCategorySection("Beauty & Personal Care", beautyProducts)}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -271,10 +194,19 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 20,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "bold",
     marginBottom: 10,
+  },
+  viewAllButton: {
+    fontSize: 16,
+    color: "#337ab7",
   },
   flatListHorizontal: {
     paddingLeft: 10,
@@ -285,16 +217,6 @@ const styles = StyleSheet.create({
     marginRight: 10,
     width: 150,
     overflow: "hidden",
-    ...(Platform.OS === "ios" && {
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 1,
-      shadowRadius: 4,
-    }),
-    ...(Platform.OS === "android" && {
-      elevation: 3,
-      shadowColor: "#f2f2f2",
-    }),
   },
   productImage: {
     width: "100%",
