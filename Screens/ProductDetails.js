@@ -7,6 +7,7 @@ import {
   Image,
   Dimensions,
   Pressable,
+  Alert,
 } from "react-native";
 import { db } from "../Configs/FirebaseConfig";
 import {
@@ -14,11 +15,13 @@ import {
   setDoc,
   deleteDoc,
   getDoc,
+  updateDoc,
   collection,
   serverTimestamp,
+  onSnapshot,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import Ionicons from "react-native-vector-icons/Ionicons"; // For favorite icon
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 const { width } = Dimensions.get("window");
 
@@ -42,7 +45,7 @@ const ProductDetails = ({ route, navigation }) => {
   const user = auth.currentUser;
 
   const category = product.category;
-  const subcategory = product.subCategory || ""; // Assuming subcategory exists in the product data
+  const subcategory = product.subCategory || "";
   const gender = product.gender || "";
 
   useEffect(() => {
@@ -53,6 +56,23 @@ const ProductDetails = ({ route, navigation }) => {
       headerTitle: title,
     });
   }, [navigation, gender, category, subcategory]);
+
+  const fetchProductData = async () => {
+    try {
+      const productRef = doc(db, category, product.uid);
+      onSnapshot(productRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const updatedProduct = docSnap.data();
+          product.inventory = updatedProduct.inventory;
+          setAvailableStock(
+            selectedSize ? updatedProduct.inventory[selectedSize] : 0
+          );
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching product data:", error);
+    }
+  };
 
   const checkIfFavorite = async () => {
     try {
@@ -76,12 +96,24 @@ const ProductDetails = ({ route, navigation }) => {
 
   useEffect(() => {
     if (user) {
+      fetchProductData();
       checkIfFavorite(); // Call this function on component mount
       console.log("User is logged in, checking favorites...");
     } else {
       console.log("User is not logged in.");
     }
   }, [user]);
+
+  useEffect(() => {
+    const unsubscribeFocus = navigation.addListener("focus", () => {
+      // Reset selections when the screen is focused
+      setSelectedSize(null);
+      setQuantity(1);
+      fetchProductData();
+    });
+
+    return unsubscribeFocus;
+  }, [navigation]);
 
   const handleSizeSelection = (size) => {
     setSelectedSize(size);
@@ -93,34 +125,68 @@ const ProductDetails = ({ route, navigation }) => {
   };
 
   const handleAddToCart = async () => {
-    if (!user) {
-      console.error("User is not logged in.");
+    if (!user) return;
+    if ((category === "Clothing" || category === "Shoes") && !selectedSize)
       return;
-    }
 
-    if ((category === "Clothing" || category === "Shoes") && !selectedSize) {
-      console.error("No size selected.");
-      return;
-    }
-
-    // Log the current product state before adding it to the cart
-    console.log("Current product details:", product);
-
-    // Create productToAdd object with necessary properties
-    const productToAdd = {
-      ...product,
-      size: selectedSize || null, // Ensure size is explicitly null if not selected
-      quantity: quantity,
-      addedAt: serverTimestamp(), // Add timestamp
-    };
-
-    console.log("Adding product to cart:", productToAdd);
+    // Unique identifier for each product-size combination
+    const cartItemId = `${product.uid}-${selectedSize || "default"}`;
+    const cartRef = doc(db, "userProfile", user.uid, "cart", cartItemId);
 
     try {
-      const cartRef = collection(db, "userProfile", user.uid, "cart");
-      // Using setDoc with a unique identifier
-      await setDoc(doc(cartRef), productToAdd); // This assumes you're okay with overwriting any existing document with the same ID
-      console.log(`Product added to cart successfully: ${productToAdd.name}`);
+      const cartSnap = await getDoc(cartRef);
+
+      if (cartSnap.exists()) {
+        // Product with the same size is already in cart, increment quantity
+        const existingQuantity = cartSnap.data().quantity;
+        const newQuantity = existingQuantity + quantity;
+
+        // Update quantity in the cart
+        await updateDoc(cartRef, { quantity: newQuantity });
+        console.log(
+          `Quantity updated for ${product.name} (Size: ${selectedSize}): New Quantity = ${newQuantity}`
+        );
+      } else {
+        // Product with different size or new product, add it to cart
+        const productToAdd = {
+          ...product,
+          size: selectedSize || null, // Ensure size is explicitly null if not selected
+          quantity: quantity,
+          addedAt: serverTimestamp(),
+        };
+
+        await setDoc(cartRef, productToAdd);
+        console.log(
+          `Product added to cart: ${product.name} (Size: ${
+            selectedSize || "N/A"
+          })`
+        );
+      }
+
+      // Update the inventory
+      const inventoryRef = doc(db, `${category}`, product.uid);
+      const newStock =
+        category === "Jewelry" ||
+        category === "BeautyPersonalCare" ||
+        category === "HealthWellness"
+          ? product.inventory - quantity
+          : product.inventory[selectedSize] - quantity;
+
+      await updateDoc(inventoryRef, {
+        [category === "Jewelry" ||
+        category === "BeautyPersonalCare" ||
+        category === "HealthWellness"
+          ? "inventory"
+          : `inventory.${selectedSize}`]: newStock,
+      });
+
+      // Show alert on successful addition
+      Alert.alert("Success", `${product.name} has been added to your cart.`);
+
+      // Reset size selection and quantity after adding to cart
+      setSelectedSize(null);
+      setQuantity(1);
+      fetchProductData();
     } catch (error) {
       console.error("Error adding product to cart:", error);
     }
@@ -151,6 +217,7 @@ const ProductDetails = ({ route, navigation }) => {
         setIsFavorite(true);
         console.log(`Product ${productId} added to favorites!`);
       }
+      fetchProductData();
     } catch (error) {
       console.error("Error toggling favorite status:", error);
     }
@@ -232,6 +299,14 @@ const ProductDetails = ({ route, navigation }) => {
         )}
 
         {/* Quantity Selector - Hide for clothing and shoes unless size is selected */}
+        {(category === "Jewelry" ||
+          category === "BeautyPersonalCare" ||
+          category === "HealthWellness") && (
+          <Text style={styles.stockText}>
+            Available Stock: {product.inventory}
+          </Text>
+        )}
+
         {(category !== "Clothing" && category !== "Shoes") || selectedSize ? (
           <View style={styles.quantitySelector}>
             <Text style={styles.quantityLabel}>Quantity:</Text>

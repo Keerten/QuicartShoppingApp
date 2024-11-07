@@ -8,6 +8,7 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
 import { getAuth } from "firebase/auth";
 import { db } from "../Configs/FirebaseConfig";
@@ -15,6 +16,8 @@ import { collection, onSnapshot } from "firebase/firestore";
 
 const Favorites = ({ navigation }) => {
   const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const auth = getAuth();
   const user = auth.currentUser;
 
@@ -23,24 +26,33 @@ const Favorites = ({ navigation }) => {
       const favoritesRef = collection(db, "userProfile", user.uid, "favorites");
 
       // Listen for real-time updates
-      const unsubscribe = onSnapshot(favoritesRef, (snapshot) => {
-        const favoritesData = snapshot.docs.map((doc) => ({
-          ...doc.data(), // Spread all product data fields
-        }));
-        setFavorites(favoritesData);
-      });
+      const unsubscribe = onSnapshot(
+        favoritesRef,
+        (snapshot) => {
+          const favoritesData = snapshot.docs.map((doc) => ({
+            ...doc.data(),
+          }));
+          setFavorites(favoritesData);
+          setLoading(false); // Data loaded
+        },
+        (error) => {
+          console.error("Error fetching favorites: ", error);
+          setError("Failed to load favorites. Please try again.");
+          setLoading(false);
+        }
+      );
 
       // Cleanup subscription on unmount
       return () => unsubscribe();
+    } else {
+      setLoading(false); // If no user, stop loading
     }
   }, [user]);
 
   const handleFavoritePress = (item) => {
-    // Navigate to the product details screen
     navigation.navigate("ProductDetails", { product: item });
   };
 
-  // Render each item in the favorites list
   const renderItem = ({ item }) => (
     <Pressable
       style={styles.favoriteItem}
@@ -54,13 +66,28 @@ const Favorites = ({ navigation }) => {
     </Pressable>
   );
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.errorMessage}>{error}</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {favorites.length > 0 ? (
         <FlatList
           data={favorites}
           renderItem={renderItem}
-          // Instead of using `id`, use a unique combination of product fields
           keyExtractor={(item) => `${item.name}-${item.price}`}
           contentContainerStyle={styles.favoritesList}
         />
@@ -105,14 +132,14 @@ const styles = StyleSheet.create({
   },
   favoriteInfo: {
     justifyContent: "center",
-    flex: 1, // Allow this view to take up available space
+    flex: 1,
   },
   favoriteName: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#333",
-    flexWrap: "wrap", // Allow text to wrap to the next line
-    maxHeight: 50, // Limit the height of the text
+    flexWrap: "wrap",
+    maxHeight: 50,
   },
   favoritePrice: {
     fontSize: 16,
@@ -122,6 +149,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     textAlign: "center",
     color: "#666",
+  },
+  errorMessage: {
+    fontSize: 20,
+    textAlign: "center",
+    color: "red",
   },
 });
 

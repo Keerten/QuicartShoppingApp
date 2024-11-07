@@ -1,4 +1,3 @@
-// ViewAllScreen.js
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -14,22 +13,48 @@ const ViewAll = ({ route }) => {
   const { category, products } = route.params;
   const navigation = useNavigation();
 
-  const [selectedGender, setSelectedGender] = useState("All");
+  const [selectedFilter, setSelectedFilter] = useState("All");
   const [filteredProducts, setFilteredProducts] = useState(products);
+
+  // Filter arrays
+  const genderFilters = ["All", "Men", "Women", "Kids"];
+  const beautyFilters = ["All", "Makeup", "Nails", "Brushes", "Skincare", "Haircare", "Fragrance"];
+  const jewelryFilters = ["All", "Necklace", "Rings", "Bracelet", "Bangle", "Earrings"];
+  const healthWellnessFilters = ["All", "Medicine", "Exercise Equipment", "Massaging Devices", "Supplements", "Yoga Accessories"];
 
   useEffect(() => {
     navigation.setOptions({ title: `Explore Our Collection: ${category}` });
   }, [navigation, category]);
 
   useEffect(() => {
-    if (selectedGender === "All") {
+    console.log("Selected Filter:", selectedFilter);
+    console.log("Products data:", products);
+
+    if (selectedFilter === "All") {
       setFilteredProducts(products);
     } else {
-      setFilteredProducts(
-        products.filter((product) => product.gender === selectedGender)
-      );
+      const filtered = products.filter((product) => {
+        console.log("Checking product:", product.name, "with subcategory:", product.subcategory);
+
+        if (category === "Beauty & Personal Care") {
+          // Filtering for Beauty & Personal Care subcategories
+          return product.subcategory?.toLowerCase() === selectedFilter.toLowerCase();
+        } else if (category === "Jewelry") {
+          // Filtering for Jewelry subcategories
+          return product.subcategory?.toLowerCase() === selectedFilter.toLowerCase();
+        } else if (category === "Health & Wellness") {
+          // Filtering for Health & Wellness subcategories
+          return product.subcategory?.toLowerCase() === selectedFilter.toLowerCase();
+        } else if (category === "Clothes" || category === "Shoes") {
+          return product.gender === selectedFilter;
+        }
+        return false;
+      });
+
+      console.log("Filtered Products:", filtered);
+      setFilteredProducts(filtered);
     }
-  }, [selectedGender, products]);
+  }, [selectedFilter, products, category]);
 
   const renderItem = ({ item }) => (
     <Pressable
@@ -49,73 +74,110 @@ const ViewAll = ({ route }) => {
 
   return (
     <View style={styles.container}>
+      {/* Gender filters for Clothes & Shoes */}
       {(category === "Clothes" || category === "Shoes") && (
         <View style={styles.filterContainer}>
           <View style={styles.buttonGroup}>
-            <Pressable
-              style={[
-                styles.genderButton,
-                selectedGender === "Men" && styles.selectedButton,
-              ]}
-              onPress={() => setSelectedGender("Men")}
-            >
-              <Text
+            {genderFilters.map((filter) => (
+              <Pressable
+                key={filter}
                 style={[
-                  styles.buttonText,
-                  selectedGender === "Men" && styles.selectedButtonText,
+                  styles.filterButton,
+                  selectedFilter === filter && styles.selectedButton,
                 ]}
+                onPress={() => setSelectedFilter(filter)}
               >
-                Men
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.genderButton,
-                selectedGender === "Women" && styles.selectedButton,
-              ]}
-              onPress={() => setSelectedGender("Women")}
-            >
-              <Text
+                <Text
+                  style={[
+                    styles.buttonText,
+                    selectedFilter === filter && styles.selectedButtonText,
+                  ]}
+                >
+                  {filter}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Beauty & Personal Care filters */}
+      {category === "Beauty & Personal Care" && (
+        <View style={styles.filterContainer}>
+          <View style={styles.buttonGroup}>
+            {beautyFilters.map((filter) => (
+              <Pressable
+                key={filter}
                 style={[
-                  styles.buttonText,
-                  selectedGender === "Women" && styles.selectedButtonText,
+                  styles.filterButton,
+                  selectedFilter === filter && styles.selectedButton,
                 ]}
+                onPress={() => setSelectedFilter(filter)}
               >
-                Women
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.genderButton,
-                selectedGender === "Kids" && styles.selectedButton,
-              ]}
-              onPress={() => setSelectedGender("Kids")}
-            >
-              <Text
+                <Text
+                  style={[
+                    styles.buttonText,
+                    selectedFilter === filter && styles.selectedButtonText,
+                  ]}
+                >
+                  {filter}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Jewelry filters */}
+      {category === "Jewelry" && (
+        <View style={styles.filterContainer}>
+          <View style={styles.buttonGroup}>
+            {jewelryFilters.map((filter) => (
+              <Pressable
+                key={filter}
                 style={[
-                  styles.buttonText,
-                  selectedGender === "Kids" && styles.selectedButtonText,
+                  styles.filterButton,
+                  selectedFilter === filter && styles.selectedButton,
                 ]}
+                onPress={() => setSelectedFilter(filter)}
               >
-                Kids
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.genderButton,
-                selectedGender === "All" && styles.selectedButton,
-              ]}
-              onPress={() => setSelectedGender("All")}
-            >
-              <Text
+                <Text
+                  style={[
+                    styles.buttonText,
+                    selectedFilter === filter && styles.selectedButtonText,
+                  ]}
+                >
+                  {filter}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Health & Wellness filters */}
+      {category === "Health & Wellness" && (
+        <View style={styles.filterContainer}>
+          <View style={styles.buttonGroup}>
+            {healthWellnessFilters.map((filter) => (
+              <Pressable
+                key={filter}
                 style={[
-                  styles.buttonText,
-                  selectedGender === "All" && styles.selectedButtonText,
+                  styles.filterButton,
+                  selectedFilter === filter && styles.selectedButton,
                 ]}
+                onPress={() => setSelectedFilter(filter)}
               >
-                All
-              </Text>
-            </Pressable>
+                <Text
+                  style={[
+                    styles.buttonText,
+                    selectedFilter === filter && styles.selectedButtonText,
+                  ]}
+                >
+                  {filter}
+                </Text>
+              </Pressable>
+            ))}
           </View>
         </View>
       )}
@@ -130,6 +192,7 @@ const ViewAll = ({ route }) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -148,10 +211,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     height: 250,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
@@ -179,31 +239,27 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
   },
   buttonGroup: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
   },
-  genderButton: {
+  filterButton: {
     backgroundColor: "#fff",
     borderColor: "#ddd",
     borderWidth: 1,
     borderRadius: 5,
     padding: 10,
-    width: "22%",
+    width: "30%",
     alignItems: "center",
+    marginBottom: 5,
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,

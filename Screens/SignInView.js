@@ -79,6 +79,7 @@ const SignInView = ({ navigation }) => {
       );
       console.log("Successfully logged in:", userCredentials.user.email);
       await saveCredentials();
+      //navigation.navigate("AddProduct")
       navigation.replace("Tabs");
     } catch (error) {
       handleSignInError(error);

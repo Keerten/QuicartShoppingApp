@@ -6,7 +6,7 @@ import { collection, addDoc } from "firebase/firestore";
 import sharedStyles from "./styles"; // Adjust path as necessary
 
 const BeautyPersonalCare = () => {
-  const [category, setCategory] = useState("Makeup");
+  const [category, setCategory] = useState("Makeup"); // Local state remains 'category' for selection
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
   const [inventory, setInventory] = useState("");
@@ -42,7 +42,7 @@ const BeautyPersonalCare = () => {
         images: [],
         inventory: parseInt(inventory),
         price: parseFloat(price),
-        category,
+        subcategory: category, // Updated field name here
         uid,
       };
 
