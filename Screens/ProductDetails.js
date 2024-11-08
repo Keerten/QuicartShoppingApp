@@ -7,6 +7,7 @@ import {
   Image,
   Dimensions,
   Pressable,
+  Alert,
 } from "react-native";
 import { db } from "../Configs/FirebaseConfig";
 import {
@@ -14,11 +15,12 @@ import {
   setDoc,
   deleteDoc,
   getDoc,
-  collection,
+  updateDoc,
+  onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import Ionicons from "react-native-vector-icons/Ionicons"; // For favorite icon
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 const { width } = Dimensions.get("window");
 
@@ -42,7 +44,7 @@ const ProductDetails = ({ route, navigation }) => {
   const user = auth.currentUser;
 
   const category = product.category;
-  const subcategory = product.subCategory || ""; // Assuming subcategory exists in the product data
+  const subcategory = product.subCategory || "";
   const gender = product.gender || "";
 
   useEffect(() => {
@@ -54,21 +56,33 @@ const ProductDetails = ({ route, navigation }) => {
     });
   }, [navigation, gender, category, subcategory]);
 
+  const fetchProductData = () => {
+    const productRef = doc(db, category, product.uid);
+    const unsubscribe = onSnapshot(productRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const updatedProduct = docSnap.data();
+
+        if (category === "Clothing" || category === "Shoes") {
+          if (selectedSize) {
+            setAvailableStock(updatedProduct.inventory[selectedSize] || 0);
+          } else {
+            setAvailableStock(0);
+          }
+        } else {
+          setAvailableStock(updatedProduct.inventory || 0);
+        }
+        product.inventory = updatedProduct.inventory;
+      }
+    });
+    return unsubscribe;
+  };
+
   const checkIfFavorite = async () => {
     try {
-      const productId = product.name;
-      const docRef = doc(db, "userProfile", user.uid, "favorites", productId);
+      const docRef = doc(db, "userProfile", user.uid, "favorites", product.uid);
       const docSnap = await getDoc(docRef);
 
-      console.log("Checking favorite status for product:", productId);
-
-      if (docSnap.exists()) {
-        setIsFavorite(true);
-        console.log(`Product ${productId} is already in favorites.`);
-      } else {
-        setIsFavorite(false);
-        console.log(`Product ${productId} is not in favorites.`);
-      }
+      setIsFavorite(docSnap.exists());
     } catch (error) {
       console.error("Error checking favorite status:", error);
     }
@@ -76,51 +90,65 @@ const ProductDetails = ({ route, navigation }) => {
 
   useEffect(() => {
     if (user) {
-      checkIfFavorite(); // Call this function on component mount
-      console.log("User is logged in, checking favorites...");
-    } else {
-      console.log("User is not logged in.");
+      const unsubscribe = fetchProductData();
+      checkIfFavorite();
+      return unsubscribe;
     }
-  }, [user]);
+  }, [user, selectedSize]);
 
   const handleSizeSelection = (size) => {
     setSelectedSize(size);
     setAvailableStock(product.inventory[size]);
-    setQuantity(1); // Reset quantity to 1 when size changes
-    console.log(
-      `Size selected: ${size}, Available Stock: ${product.inventory[size]}`
-    );
+    setQuantity(1);
   };
 
   const handleAddToCart = async () => {
-    if (!user) {
-      console.error("User is not logged in.");
-      return;
-    }
-
+    if (!user) return;
     if ((category === "Clothing" || category === "Shoes") && !selectedSize) {
-      console.error("No size selected.");
       return;
     }
 
-    // Log the current product state before adding it to the cart
-    console.log("Current product details:", product);
-
-    // Create productToAdd object with necessary properties
-    const productToAdd = {
-      ...product,
-      size: selectedSize || null, // Ensure size is explicitly null if not selected
-      quantity: quantity,
-      addedAt: serverTimestamp(), // Add timestamp
-    };
-
-    console.log("Adding product to cart:", productToAdd);
+    const cartItemId = `${product.uid}-${selectedSize || "default"}`;
+    const cartRef = doc(db, "userProfile", user.uid, "cart", cartItemId);
 
     try {
-      const cartRef = collection(db, "userProfile", user.uid, "cart");
-      // Using setDoc with a unique identifier
-      await setDoc(doc(cartRef), productToAdd); // This assumes you're okay with overwriting any existing document with the same ID
-      console.log(`Product added to cart successfully: ${productToAdd.name}`);
+      const cartSnap = await getDoc(cartRef);
+
+      if (cartSnap.exists()) {
+        const existingQuantity = cartSnap.data().quantity;
+        const newQuantity = existingQuantity + quantity;
+        await updateDoc(cartRef, { quantity: newQuantity });
+      } else {
+        const productToAdd = {
+          uid: product.uid,
+          category: product.category,
+          quantity: quantity,
+          addedAt: serverTimestamp(),
+        };
+
+        if (category === "Clothing" || category === "Shoes") {
+          productToAdd.size = selectedSize;
+        }
+
+        await setDoc(cartRef, productToAdd);
+      }
+
+      const inventoryRef = doc(db, category, product.uid);
+      const newStock =
+        category === "Clothing" || category === "Shoes"
+          ? product.inventory[selectedSize] - quantity
+          : product.inventory - quantity;
+
+      await updateDoc(inventoryRef, {
+        [category === "Clothing" || category === "Shoes"
+          ? `inventory.${selectedSize}`
+          : "inventory"]: newStock,
+      });
+
+      Alert.alert("Success", `${product.name} has been added to your cart.`);
+      setSelectedSize(null);
+      setQuantity(1);
+      fetchProductData();
     } catch (error) {
       console.error("Error adding product to cart:", error);
     }
@@ -128,28 +156,19 @@ const ProductDetails = ({ route, navigation }) => {
 
   const toggleFavorite = async () => {
     try {
-      const productId = product.name;
-      if (!productId) {
-        console.error("Product ID is missing.");
-        return;
-      }
-
-      console.log("Toggling favorite status for product:", productId);
-
-      const docRef = doc(db, "userProfile", user.uid, "favorites", productId);
+      const docRef = doc(db, "userProfile", user.uid, "favorites", product.uid);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        await deleteDoc(docRef); // Remove from favorites
+        await deleteDoc(docRef);
         setIsFavorite(false);
-        console.log(`Product ${productId} removed from favorites!`);
       } else {
         await setDoc(docRef, {
-          ...product, // Spread the entire product object
-          addedAt: serverTimestamp(), // Add timestamp
+          uid: product.uid,
+          category: product.category,
+          addedAt: serverTimestamp(),
         });
         setIsFavorite(true);
-        console.log(`Product ${productId} added to favorites!`);
       }
     } catch (error) {
       console.error("Error toggling favorite status:", error);
@@ -184,13 +203,21 @@ const ProductDetails = ({ route, navigation }) => {
         <Text style={styles.price}>${product.price}</Text>
         <Text style={styles.description}>{product.description}</Text>
 
+        {(category === "Jewelry" ||
+          category === "BeautyPersonalCare" ||
+          category === "HealthWellness") && (
+          <Text style={styles.stockText}>
+            Available Stock: {product.inventory}
+          </Text>
+        )}
+
         {(category === "Clothing" || category === "Shoes") && (
           <>
             <Text style={styles.sizes}>Available Sizes:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {sizeConfigurations[category.toLowerCase()].order.map(
                 (size, index) => {
-                  const isAvailable = product.inventory[size] > 0; // Check if the size is available
+                  const isAvailable = product.inventory[size] > 0;
                   return (
                     <Pressable
                       key={index}
@@ -202,8 +229,6 @@ const ProductDetails = ({ route, navigation }) => {
                       onPress={() => {
                         if (isAvailable) {
                           handleSizeSelection(size);
-                        } else {
-                          console.log(`Size ${size} is not available.`);
                         }
                       }}
                       disabled={!isAvailable}
@@ -231,34 +256,24 @@ const ProductDetails = ({ route, navigation }) => {
           </>
         )}
 
-        {/* Quantity Selector - Hide for clothing and shoes unless size is selected */}
         {(category !== "Clothing" && category !== "Shoes") || selectedSize ? (
           <View style={styles.quantitySelector}>
             <Text style={styles.quantityLabel}>Quantity:</Text>
-
-            {/* Minus Button */}
             <Pressable
               style={styles.quantityButton}
-              onPress={() => {
-                const newQuantity = Math.max(1, quantity - 1);
-                setQuantity(newQuantity);
-              }}
-              disabled={quantity === 1} // Disable when quantity is 1
+              onPress={() => setQuantity(Math.max(1, quantity - 1))}
+              disabled={quantity === 1}
             >
               <Text
                 style={[
                   styles.quantityButtonText,
-                  quantity === 1 && styles.disabledText, // Gray out text when quantity is 1
+                  quantity === 1 && styles.disabledText,
                 ]}
               >
                 -
               </Text>
             </Pressable>
-
-            {/* Quantity Text */}
             <Text style={styles.quantityText}>{quantity}</Text>
-
-            {/* Plus Button */}
             <Pressable
               style={styles.quantityButton}
               onPress={() =>
@@ -269,7 +284,7 @@ const ProductDetails = ({ route, navigation }) => {
               <Text
                 style={[
                   styles.quantityButtonText,
-                  quantity >= availableStock && styles.disabledText, // Gray out text if at max stock
+                  quantity >= availableStock && styles.disabledText,
                 ]}
               >
                 +
@@ -403,5 +418,4 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 });
-
 export default ProductDetails;
