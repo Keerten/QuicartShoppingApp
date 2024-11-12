@@ -2,8 +2,6 @@ import React from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 import ProductList from "./Screens/ProductList";
 import ProductDetails from "./Screens/ProductDetails";
-import Shoes from "./Screens/CategoryScreens/Shoes";
-import Clothing from "./Screens/CategoryScreens/Clothing";
 import Icon from "react-native-vector-icons/Ionicons";
 import { View, Pressable } from "react-native";
 import { auth } from "./Configs/FirebaseConfig";
@@ -42,20 +40,6 @@ const HomeStackNavigator = () => {
             </View>
           ),
         })}
-      />
-
-      {/* Shoes Category Screen */}
-      <Stack.Screen
-        name="Shoes"
-        component={Shoes}
-        options={{ title: "Shoes" }}
-      />
-
-      {/* Clothing Category Screen */}
-      <Stack.Screen
-        name="Clothing"
-        component={Clothing}
-        options={{ title: "Clothing" }}
       />
 
       {/* ProductDetails Screen */}

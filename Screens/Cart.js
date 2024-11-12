@@ -20,6 +20,7 @@ import {
   updateDoc,
   onSnapshot,
 } from "firebase/firestore";
+import { useStripe } from "@stripe/stripe-react-native";
 
 const Cart = () => {
   const auth = getAuth();
@@ -27,6 +28,7 @@ const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const fetchProductDetails = async (productUid, category) => {
     if (!category || !productUid) {
@@ -181,15 +183,61 @@ const Cart = () => {
     }
   }, [user]);
 
+  const handleCheckout = async () => {
+    try {
+      // Step 1: Fetch the Payment Intent client secret from your server
+      const response = await fetch(
+        "https://pi-quicart.vercel.app/create-payment-intent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: calculateSubtotal() * 100, // Amount in cents
+          }),
+        }
+      );
+
+      const { clientSecret } = await response.json();
+
+      if (!clientSecret) {
+        Alert.alert("Error", "Unable to initiate payment.");
+        return;
+      }
+
+      // Step 2: Initialize the payment sheet
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: "Quicart Shopping App",
+        returnURL: "quicart://payment-completed",
+      });
+
+      if (initError) {
+        console.log("Payment sheet initialization error:", initError.message);
+        Alert.alert("Error", "Failed to initialize payment sheet.");
+        return;
+      }
+
+      const { error: presentError } = await presentPaymentSheet();
+
+      if (presentError) {
+        console.log("Payment sheet presentation error:", presentError.message);
+        Alert.alert("Error", presentError.message);
+      } else {
+        Alert.alert("Success", "Your payment was confirmed!");
+      }
+    } catch (err) {
+      console.log("Checkout error:", err.message);
+      Alert.alert("Error", "Something went wrong during checkout.");
+    }
+  };
+
   const calculateSubtotal = () => {
     return cartItems.reduce(
       (total, item) => total + item.price * item.quantity,
       0
     );
-  };
-
-  const handleCheckout = () => {
-    Alert.alert("Checkout", "Proceed to checkout");
   };
 
   if (!isLoggedIn) {
