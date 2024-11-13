@@ -44,10 +44,8 @@ const Jewelry = () => {
 
     try {
       const categoryPath = `Jewelry`;
-      const uid = `${category}_${Date.now()}`;
 
       await addDoc(collection(db, categoryPath), {
-        uid,
         category,
         name,
         material,

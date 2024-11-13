@@ -61,7 +61,6 @@ const Shoes = () => {
           9: parseInt(inventory[9]) || 0,
           10: parseInt(inventory[10]) || 0,
         },
-        uid: `${gender}_${shoeCategory}_${Date.now()}`,
       };
 
       await addDoc(collection(db, categoryPath), productData); // Add document to the collection

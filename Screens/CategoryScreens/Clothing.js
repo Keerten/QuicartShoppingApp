@@ -70,7 +70,6 @@ const Clothing = () => {
           L: parseInt(inventory.L),
           XL: parseInt(inventory.XL),
         },
-        uid: `${gender}_${clothingCategory}_${Date.now()}`,
       };
 
       console.log("Product Data:", productData);

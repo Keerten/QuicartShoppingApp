@@ -33,7 +33,6 @@ const BeautyPersonalCare = () => {
 
     try {
       const categoryPath = `BeautyPersonalCare`;
-      const uid = `${category}_${Date.now()}`;
 
       const productData = {
         name,
@@ -43,7 +42,6 @@ const BeautyPersonalCare = () => {
         inventory: parseInt(inventory),
         price: parseFloat(price),
         category,
-        uid,
       };
 
       await addDoc(collection(db, categoryPath), productData);
