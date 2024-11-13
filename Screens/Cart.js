@@ -185,6 +185,8 @@ const Cart = () => {
 
   const handleCheckout = async () => {
     try {
+      console.log("Starting checkout process...");
+
       // Step 1: Fetch the Payment Intent client secret from your server
       const response = await fetch(
         "https://pi-quicart.vercel.app/create-payment-intent",
@@ -194,14 +196,29 @@ const Cart = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            amount: calculateSubtotal() * 100, // Amount in cents
+            amount: Math.round(calculateSubtotal() * 100), // Amount in cents
           }),
         }
       );
 
+      console.log("Amount:", Math.round(calculateSubtotal() * 100));
+      console.log("Response from server:", response);
+
+      if (!response.ok) {
+        console.error(
+          "Failed to fetch payment intent:",
+          response.status,
+          response.statusText
+        );
+        Alert.alert("Error", "Unable to initiate payment.");
+        return;
+      }
+
       const { clientSecret } = await response.json();
+      console.log("Received client secret:", clientSecret);
 
       if (!clientSecret) {
+        console.log("Client secret is missing.");
         Alert.alert("Error", "Unable to initiate payment.");
         return;
       }
@@ -219,20 +236,22 @@ const Cart = () => {
         return;
       }
 
+      console.log("Payment sheet initialized successfully.");
+
       const { error: presentError } = await presentPaymentSheet();
 
       if (presentError) {
         console.log("Payment sheet presentation error:", presentError.message);
         Alert.alert("Error", presentError.message);
       } else {
+        console.log("Payment was confirmed successfully.");
         Alert.alert("Success", "Your payment was confirmed!");
       }
     } catch (err) {
-      console.log("Checkout error:", err.message);
+      console.log("Checkout error:", err);
       Alert.alert("Error", "Something went wrong during checkout.");
     }
   };
-
   const calculateSubtotal = () => {
     return cartItems.reduce(
       (total, item) => total + item.price * item.quantity,
