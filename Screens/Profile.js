@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,13 @@ import {
   SafeAreaView,
   Alert,
 } from "react-native";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { auth, db } from "../Configs/FirebaseConfig";
 
 const Profile = () => {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
   // State variables for profile fields
@@ -30,44 +31,41 @@ const Profile = () => {
   });
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const userId = auth.currentUser?.uid;
+    const userId = auth.currentUser?.uid;
 
-        if (!userId) {
-          console.error("User  not authenticated.");
-          return;
-        }
+    if (!userId) {
+      console.error("User not authenticated.");
+      return;
+    }
 
-        const userProfileRef = doc(db, "userProfile", userId);
-        const userProfileSnapshot = await getDoc(userProfileRef);
+    const userProfileRef = doc(db, "userProfile", userId);
 
-        if (userProfileSnapshot.exists()) {
-          const userData = userProfileSnapshot.data();
-          setProfileData(userData);
-          setName(userData.name);
-          setEmail(userData.email);
-          setPhoneNumber(userData.phoneNumber);
-          setAddress(userData.address || {}); // Set address state
-        } else {
-          console.error("No user profile found for the given ID.");
-        }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-      } finally {
-        setLoading(false);
+    // Real-time listener to sync profile data
+    const unsubscribe = onSnapshot(userProfileRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.data();
+        setProfileData(userData);
+        setName(userData.name || "");
+        setEmail(userData.email || "");
+        setPhoneNumber(userData.phoneNumber || "");
+        setAddress(userData.address || {});
+      } else {
+        console.error("No user profile found for the given ID.");
       }
-    };
+      setLoading(false);
+    });
 
-    fetchUserProfile();
+    // Clean up listener on component unmount
+    return () => unsubscribe();
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    setSaving(true);
     try {
       const userId = auth.currentUser?.uid;
 
       if (!userId) {
-        console.error("User  not authenticated.");
+        console.error("User not authenticated.");
         return;
       }
 
@@ -93,8 +91,10 @@ const Profile = () => {
     } catch (error) {
       console.error("Error updating user profile:", error);
       Alert.alert("Error", "Failed to update profile.");
+    } finally {
+      setSaving(false);
     }
-  };
+  }, [name, phoneNumber, address]);
 
   if (loading) {
     return (
@@ -124,10 +124,10 @@ const Profile = () => {
             placeholder="Enter your name"
           />
           <TextInput
-            style={[styles.input, styles.disabledInput]} // Greyed out style
+            style={[styles.input, styles.disabledInput]}
             value={email}
             placeholder="Enter your email"
-            editable={false} // Disable input
+            editable={false}
           />
           <TextInput
             style={styles.input}
@@ -169,12 +169,18 @@ const Profile = () => {
             placeholder="Postal Code"
           />
           <View style={styles.buttonContainer}>
-            <Button title="Save" onPress={handleSave} />
-            <Button
-              title="Cancel"
-              onPress={() => setEditMode(false)}
-              color="red"
-            />
+            {saving ? (
+              <ActivityIndicator size="small" color="#0000ff" />
+            ) : (
+              <>
+                <Button title="Save" onPress={handleSave} />
+                <Button
+                  title="Cancel"
+                  onPress={() => setEditMode(false)}
+                  color="red"
+                />
+              </>
+            )}
           </View>
         </>
       ) : (
@@ -194,8 +200,14 @@ const Profile = () => {
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>Address</Text>
             <Text style={styles.fieldValue}>
-              {profileData.address.street}, {profileData.address.city},{" "}
-              {profileData.address.country} {profileData.address.postalCode}
+              {profileData.address?.street
+                ? profileData.address.street + ", "
+                : ""}
+              {profileData.address?.city ? profileData.address.city + ", " : ""}
+              {profileData.address?.country
+                ? profileData.address.country + " "
+                : ""}
+              {profileData.address?.postalCode || ""}
             </Text>
           </View>
           <Button title="Edit Profile" onPress={() => setEditMode(true)} />
@@ -244,8 +256,8 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   disabledInput: {
-    backgroundColor: "#e0e0e0", // Grey background to indicate disabled state
-    color: "#a0a0a0", // Grey text color to indicate disabled state
+    backgroundColor: "#e0e0e0",
+    color: "#a0a0a0",
   },
   buttonContainer: {
     flexDirection: "row",
