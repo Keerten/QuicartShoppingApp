@@ -349,7 +349,6 @@ const Cart = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#f9f9f9",
   },
   centeredContent: {
