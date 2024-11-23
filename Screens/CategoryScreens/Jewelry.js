@@ -46,7 +46,8 @@ const Jewelry = () => {
       const categoryPath = `Jewelry`;
 
       await addDoc(collection(db, categoryPath), {
-        category,
+        subCategory: category,
+        category: "Jewelry",
         name,
         material,
         weight: parseFloat(weight),

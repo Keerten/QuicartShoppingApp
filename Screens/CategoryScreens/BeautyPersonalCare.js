@@ -41,7 +41,8 @@ const BeautyPersonalCare = () => {
         images: [],
         inventory: parseInt(inventory),
         price: parseFloat(price),
-        category,
+        subCategory: category,
+        category: "BeautyPersonalCare",
       };
 
       await addDoc(collection(db, categoryPath), productData);

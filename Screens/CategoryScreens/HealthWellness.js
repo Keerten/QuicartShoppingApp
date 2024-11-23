@@ -60,7 +60,8 @@ const HealthWellness = () => {
       const categoryPath = `HealthWellness`;
 
       await addDoc(collection(db, categoryPath), {
-        category,
+        category: "HealthWellness",
+        subCategory: category,
         name,
         brand,
         inventory,
