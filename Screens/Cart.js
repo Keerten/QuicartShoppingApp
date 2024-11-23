@@ -18,6 +18,7 @@ import {
   getDoc,
   deleteDoc,
   updateDoc,
+  addDoc,
   onSnapshot,
 } from "firebase/firestore";
 import { useStripe } from "@stripe/stripe-react-native";
@@ -111,9 +112,7 @@ const Cart = () => {
 
   const handleUpdateQuantity = async (itemId, action) => {
     const currentItem = cartItems.find((item) => item.id === itemId);
-    if (!currentItem) {
-      return;
-    }
+    if (!currentItem) return;
 
     let newQuantity = currentItem.quantity;
     const maxInventory = currentItem.size
@@ -142,9 +141,7 @@ const Cart = () => {
   };
 
   const listenToCartUpdates = () => {
-    if (!user) {
-      return;
-    }
+    if (!user) return;
 
     const cartRef = collection(db, "userProfile", user.uid, "cart");
     return onSnapshot(cartRef, async (snapshot) => {
@@ -185,45 +182,30 @@ const Cart = () => {
 
   const handleCheckout = async () => {
     try {
-      console.log("Starting checkout process...");
-
-      // Step 1: Fetch the Payment Intent client secret from your server
+      // Fetch Payment Intent Client Secret from the backend
       const response = await fetch(
         "https://pi-quicart.vercel.app/create-payment-intent",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            amount: Math.round(calculateSubtotal() * 100), // Amount in cents
+            amount: Math.round(calculateSubtotal() * 100), // Convert to cents
           }),
         }
       );
 
-      console.log("Amount:", Math.round(calculateSubtotal() * 100));
-      console.log("Response from server:", response);
-
       if (!response.ok) {
-        console.error(
-          "Failed to fetch payment intent:",
-          response.status,
-          response.statusText
-        );
         Alert.alert("Error", "Unable to initiate payment.");
         return;
       }
 
       const { clientSecret } = await response.json();
-      console.log("Received client secret:", clientSecret);
-
       if (!clientSecret) {
-        console.log("Client secret is missing.");
         Alert.alert("Error", "Unable to initiate payment.");
         return;
       }
 
-      // Step 2: Initialize the payment sheet
+      // Initialize Stripe Payment Sheet
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: "Quicart Shopping App",
@@ -231,27 +213,63 @@ const Cart = () => {
       });
 
       if (initError) {
-        console.log("Payment sheet initialization error:", initError.message);
         Alert.alert("Error", "Failed to initialize payment sheet.");
         return;
       }
 
-      console.log("Payment sheet initialized successfully.");
-
+      // Present the Payment Sheet
       const { error: presentError } = await presentPaymentSheet();
 
       if (presentError) {
-        console.log("Payment sheet presentation error:", presentError.message);
         Alert.alert("Error", presentError.message);
       } else {
-        console.log("Payment was confirmed successfully.");
-        Alert.alert("Success", "Your payment was confirmed!");
+        Alert.alert("Success", "Your order is confirmed!");
+
+        // Generate order number and create order history
+        const orderHistoryRef = collection(
+          db,
+          "userProfile",
+          user.uid,
+          "orderHistory"
+        );
+        const orderNumber = Math.floor(1000000000 + Math.random() * 9000000000); // 10-digit random order number
+
+        // Save each cart item as an order record
+        await Promise.all(
+          cartItems.map(async (item) => {
+            const sizeField =
+              item.category === "Clothing" || item.category === "Shoes"
+                ? item.size
+                : "N/A";
+
+            await addDoc(orderHistoryRef, {
+              orderNumber,
+              productUid: item.uid,
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price,
+              size: sizeField,
+              images: item.images || [],
+              orderStatus: "Confirmed", // Initial order status
+              timestamp: new Date(), // Order timestamp
+            });
+          })
+        );
+
+        // Clear cart items after successful order placement
+        const cartRef = collection(db, "userProfile", user.uid, "cart");
+        await Promise.all(
+          cartItems.map((item) => deleteDoc(doc(cartRef, item.id)))
+        );
+
+        setCartItems([]); // Clear cart state in the app
       }
     } catch (err) {
-      console.log("Checkout error:", err);
+      console.error("Checkout error:", err);
       Alert.alert("Error", "Something went wrong during checkout.");
     }
   };
+
   const calculateSubtotal = () => {
     return cartItems.reduce(
       (total, item) => total + item.price * item.quantity,
