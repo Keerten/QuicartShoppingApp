@@ -11,8 +11,9 @@ import {
   KeyboardAvoidingView,
   Alert,
   Image,
+  FlatList,
 } from "react-native";
-import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, collection } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import * as ImagePicker from "expo-image-picker";
 import { auth, db, storage } from "../Configs/FirebaseConfig"; // Adjust according to your Firebase config
@@ -21,6 +22,8 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orderHistory, setOrderHistory] = useState([]);
   const [imageUri, setImageUri] = useState(null); // For storing image URI
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -43,7 +46,7 @@ const Profile = () => {
 
     const userProfileRef = doc(db, "userProfile", userId);
 
-    const unsubscribe = onSnapshot(userProfileRef, (snapshot) => {
+    const unsubscribeProfile = onSnapshot(userProfileRef, (snapshot) => {
       if (snapshot.exists()) {
         const userData = snapshot.data();
         setProfileData(userData);
@@ -58,8 +61,14 @@ const Profile = () => {
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
+    // Fetch order history in real-time
+    const unsubscribeOrders = fetchOrderHistory(userId);
+
+    return () => {
+      unsubscribeProfile();
+      unsubscribeOrders();
+    };
+  }, [fetchOrderHistory]);
 
   const handleImagePick = async () => {
     console.log("Requesting media library permissions...");
@@ -132,6 +141,36 @@ const Profile = () => {
       Alert.alert("Error", "Failed to upload the image. Please try again.");
     }
   };
+
+  const fetchOrderHistory = useCallback((userId) => {
+    setOrdersLoading(true);
+
+    const orderHistoryRef = collection(
+      db,
+      "userProfile",
+      userId,
+      "orderHistory"
+    );
+
+    const unsubscribe = onSnapshot(
+      orderHistoryRef,
+      (querySnapshot) => {
+        const orders = querySnapshot.docs.map((doc) => ({
+          id: doc.id, // Include the document ID for reference
+          ...doc.data(),
+        }));
+        setOrderHistory(orders);
+        setOrdersLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching order history:", error);
+        setOrdersLoading(false);
+      }
+    );
+
+    // Return the unsubscribe function for cleanup
+    return unsubscribe;
+  }, []);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -278,6 +317,7 @@ const Profile = () => {
             </>
           ) : (
             <>
+              {/* Profile details */}
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Name</Text>
                 <Text style={styles.fieldValue}>{profileData.name}</Text>
@@ -294,18 +334,48 @@ const Profile = () => {
                 <Text style={styles.label}>Address</Text>
                 <Text style={styles.fieldValue}>
                   {profileData.address?.street
-                    ? profileData.address.street + ", "
+                    ? `${profileData.address.street}, `
                     : ""}
                   {profileData.address?.city
-                    ? profileData.address.city + ", "
+                    ? `${profileData.address.city}, `
                     : ""}
                   {profileData.address?.country
-                    ? profileData.address.country + " "
+                    ? `${profileData.address.country} `
                     : ""}
                   {profileData.address?.postalCode || ""}
                 </Text>
               </View>
               <Button title="Edit Profile" onPress={() => setEditMode(true)} />
+
+              {/* Order History Section */}
+              <Text style={styles.orderHistoryHeader}>Order History</Text>
+              {ordersLoading ? (
+                <ActivityIndicator size="large" color="#0000ff" />
+              ) : orderHistory.length === 0 ? (
+                <Text style={styles.noOrdersText}>No orders found.</Text>
+              ) : (
+                <FlatList
+                  data={orderHistory}
+                  keyExtractor={(item, index) => index.toString()}
+                  renderItem={({ item }) => (
+                    <View style={styles.orderCard}>
+                      <Image
+                        source={{
+                          uri: item.images?.[0] || "default_img_url",
+                        }}
+                        style={styles.productImage}
+                      />
+                      <View style={styles.productDetails}>
+                        <Text style={styles.productTitle}>{item.name}</Text>
+                        <Text>Size: {item.size || "N/A"}</Text>
+                        <Text>Amount: ${item.price}</Text>
+                        <Text>Status: {item.orderStatus}</Text>
+                      </View>
+                    </View>
+                  )}
+                  scrollEnabled={false}
+                />
+              )}
             </>
           )}
         </ScrollView>
@@ -371,6 +441,39 @@ const styles = StyleSheet.create({
   fieldValue: {
     fontSize: 16,
     color: "#555",
+  },
+  orderHistoryHeader: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#007BFF",
+    marginVertical: 20,
+  },
+  noOrdersText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#555",
+  },
+  orderCard: {
+    flexDirection: "row",
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    marginBottom: 10,
+    backgroundColor: "#f9f9f9",
+  },
+  productImage: {
+    width: 60,
+    height: 60,
+    marginRight: 10,
+    borderRadius: 5,
+  },
+  productDetails: {
+    flex: 1,
+  },
+  productTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
 
