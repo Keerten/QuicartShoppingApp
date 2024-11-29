@@ -242,6 +242,7 @@ const Cart = () => {
                 ? item.size
                 : "N/A";
 
+            // Save order details to Firestore
             await addDoc(orderHistoryRef, {
               orderNumber,
               productUid: item.uid,
@@ -253,6 +254,28 @@ const Cart = () => {
               orderStatus: "Confirmed", // Initial order status
               timestamp: new Date(), // Order timestamp
             });
+
+            // Decrease stock in Firestore
+            const productRef = doc(db, item.category, item.uid);
+            const inventoryKey =
+              item.category === "Clothing" || item.category === "Shoes"
+                ? `inventory.${item.size}`
+                : "inventory";
+
+            const currentProductSnap = await getDoc(productRef);
+            if (currentProductSnap.exists()) {
+              const currentInventory =
+                currentProductSnap.get(inventoryKey) || 0;
+              const updatedInventory = Math.max(
+                0,
+                currentInventory - item.quantity
+              );
+
+              // Update inventory in Firestore
+              await updateDoc(productRef, {
+                [inventoryKey]: updatedInventory,
+              });
+            }
           })
         );
 
@@ -326,17 +349,48 @@ const Cart = () => {
                 <Text style={styles.itemPrice}>${item.price}</Text>
                 <View style={styles.quantityControls}>
                   <Pressable
-                    style={styles.quantityButton}
+                    style={[
+                      styles.quantityButton,
+                      item.quantity <= 1 && styles.disabledButton,
+                    ]}
                     onPress={() => handleUpdateQuantity(item.id, "decrease")}
+                    disabled={item.quantity <= 1}
                   >
-                    <Text style={styles.quantityText}>-</Text>
+                    <Text
+                      style={[
+                        styles.quantityText,
+                        item.quantity === 1 && styles.disabledText,
+                      ]}
+                    >
+                      -
+                    </Text>
                   </Pressable>
                   <Text style={styles.quantityText}>{item.quantity}</Text>
                   <Pressable
-                    style={styles.quantityButton}
+                    style={[
+                      styles.quantityButton,
+                      item.quantity >=
+                        (item.size
+                          ? item.inventory[item.size]
+                          : item.inventory) && styles.disabledButton,
+                    ]}
                     onPress={() => handleUpdateQuantity(item.id, "increase")}
+                    disabled={
+                      item.quantity >=
+                      (item.size ? item.inventory[item.size] : item.inventory)
+                    }
                   >
-                    <Text style={styles.quantityText}>+</Text>
+                    <Text
+                      style={[
+                        styles.quantityText,
+                        item.quantity >=
+                          (item.size
+                            ? item.inventory[item.size]
+                            : item.inventory) && styles.disabledText,
+                      ]}
+                    >
+                      +
+                    </Text>
                   </Pressable>
                 </View>
                 <Pressable
@@ -463,6 +517,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 18,
     textAlign: "center",
+  },
+  disabledButton: {
+    backgroundColor: "#f0f0f0",
+  },
+  disabledText: {
+    color: "#aaa",
   },
 });
 
