@@ -89,7 +89,7 @@ const Profile = () => {
 
       // Launch the image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ImagePicker.MediaType.IMAGES,
         allowsEditing: true, // Allows editing (cropping, etc.)
         quality: 0.5, // Compress the image for faster uploads
       });
