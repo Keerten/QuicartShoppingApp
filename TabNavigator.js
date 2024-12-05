@@ -12,22 +12,22 @@ const TabNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
           if (route.name === "Home") {
-            iconName = "home-outline";
+            iconName = focused ? "home" : "home-outline";
           } else if (route.name === "Favorites") {
-            iconName = "heart-outline";
+            iconName = focused ? "heart" : "heart-outline";
           } else if (route.name === "Cart") {
-            iconName = "cart-outline";
+            iconName = focused ? "cart" : "cart-outline";
           } else if (route.name === "Profile") {
-            iconName = "person-outline";
+            iconName = focused ? "person" : "person-outline";
           }
 
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: "tomato",
+        tabBarActiveTintColor: "black",
         tabBarInactiveTintColor: "gray",
         headerShown: true, // Show header on each tab
       })}

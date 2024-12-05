@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,59 +7,178 @@ import {
   ActivityIndicator,
   StyleSheet,
   SafeAreaView,
+  ScrollView,
+  KeyboardAvoidingView,
   Alert,
+  Image,
+  FlatList,
 } from "react-native";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { auth, db } from "../Configs/FirebaseConfig";
-
+import { doc, onSnapshot, updateDoc, collection } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import * as ImagePicker from "expo-image-picker";
+import { auth, db, storage } from "../Configs/FirebaseConfig"; // Adjust according to your Firebase config
 const Profile = () => {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [editMode, setEditMode] = useState(false); // Track if we are in edit mode
+  const [saving, setSaving] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orderHistory, setOrderHistory] = useState([]);
+  const [imageUri, setImageUri] = useState(null); // For storing image URI
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [address, setAddress] = useState({
+    apt: "",
+    street: "",
+    city: "",
+    country: "",
+    postalCode: "",
+  });
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const userId = auth.currentUser?.uid; // Get the current user's ID
-        console.log("Authenticated user ID:", userId);
+    const userId = auth.currentUser?.uid;
 
-        if (!userId) {
-          console.error("User not authenticated.");
-          return;
-        }
+    if (!userId) {
+      console.error("User not authenticated.");
+      return;
+    }
 
-        // Reference to the user's profile document in Firestore
-        const userProfileRef = doc(db, "userProfile", userId);
-        console.log(
-          "Fetching user profile from Firestore:",
-          userProfileRef.path
-        );
+    const userProfileRef = doc(db, "userProfile", userId);
 
-        const userProfileSnapshot = await getDoc(userProfileRef);
-
-        if (userProfileSnapshot.exists()) {
-          const userData = userProfileSnapshot.data();
-          console.log("User profile data fetched:", userData);
-          setProfileData(userData); // Set the profile data
-          setName(userData.name); // Initialize form fields with current data
-          setEmail(userData.email);
-        } else {
-          console.error("No user profile found for the given ID.");
-        }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-      } finally {
-        setLoading(false); // Set loading to false once data is fetched
-        console.log("Finished fetching user profile.");
+    const unsubscribeProfile = onSnapshot(userProfileRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const userData = snapshot.data();
+        setProfileData(userData);
+        setName(userData.name || "");
+        setEmail(userData.email || "");
+        setPhoneNumber(userData.phoneNumber || "");
+        setAddress(userData.address || {});
+        setImageUri(userData.profilePhoto || null); // Set the profile photo if available
+      } else {
+        console.error("No user profile found for the given ID.");
       }
-    };
+      setLoading(false);
+    });
 
-    fetchUserProfile();
+    // Fetch order history in real-time
+    const unsubscribeOrders = fetchOrderHistory(userId);
+
+    return () => {
+      unsubscribeProfile();
+      unsubscribeOrders();
+    };
+  }, [fetchOrderHistory]);
+
+  const handleImagePick = async () => {
+    try {
+      console.log("Requesting media library permissions...");
+
+      // Request permission to access the media library
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Access to the media library is required!"
+        );
+        return;
+      }
+
+      console.log("Permission granted, launching image picker...");
+
+      // Launch the image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true, // Allows editing (cropping, etc.)
+        quality: 0.5, // Compress the image for faster uploads
+      });
+
+      if (result.canceled || !result.assets?.[0]?.uri) {
+        console.log("User canceled or no valid URI returned.");
+        return;
+      }
+
+      const selectedImageUri = result.assets[0].uri;
+      console.log("Selected image URI:", selectedImageUri);
+
+      // Ensure the URI format is valid
+      if (!selectedImageUri.startsWith("file://")) {
+        Alert.alert("Error", "Invalid file URI.");
+        return;
+      }
+
+      // Fetch the file as a Blob
+      const response = await fetch(selectedImageUri);
+      const blob = await response.blob();
+
+      const userId = auth.currentUser?.uid;
+      if (!userId) {
+        Alert.alert(
+          "Error",
+          "You must be signed in to upload a profile photo."
+        );
+        return;
+      }
+
+      // Extract file extension and create a unique filename
+      const fileExtension = selectedImageUri.split(".").pop() || "jpg";
+      const fileName = `${userId}.${fileExtension}`;
+      const storageRef = ref(storage, `profile_photos/${fileName}`);
+
+      console.log("Uploading Blob to Firebase Storage...");
+
+      // Upload the Blob to Firebase Storage
+      await uploadBytes(storageRef, blob);
+
+      // Get the download URL
+      const downloadURL = await getDownloadURL(storageRef);
+      console.log("Download URL:", downloadURL);
+
+      // Update Firestore with the download URL
+      await updateDoc(doc(db, "userProfile", userId), {
+        profilePhoto: downloadURL,
+      });
+
+      Alert.alert("Success", "Profile photo uploaded successfully.");
+    } catch (error) {
+      console.error("Error uploading profile photo:", error);
+      Alert.alert("Error", "Failed to upload the image. Please try again.");
+    }
+  };
+
+  const fetchOrderHistory = useCallback((userId) => {
+    setOrdersLoading(true);
+
+    const orderHistoryRef = collection(
+      db,
+      "userProfile",
+      userId,
+      "orderHistory"
+    );
+
+    const unsubscribe = onSnapshot(
+      orderHistoryRef,
+      (querySnapshot) => {
+        const orders = querySnapshot.docs.map((doc) => ({
+          id: doc.id, // Include the document ID for reference
+          ...doc.data(),
+        }));
+        setOrderHistory(orders);
+        setOrdersLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching order history:", error);
+        setOrdersLoading(false);
+      }
+    );
+
+    // Return the unsubscribe function for cleanup
+    return unsubscribe;
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    setSaving(true);
     try {
       const userId = auth.currentUser?.uid;
 
@@ -70,83 +189,202 @@ const Profile = () => {
 
       const userProfileRef = doc(db, "userProfile", userId);
 
-      // Update only the name in Firestore
       await updateDoc(userProfileRef, {
-        name: name,
+        name,
+        phoneNumber,
+        address,
       });
 
-      // Update local state with new profile data
       setProfileData((prev) => ({
         ...prev,
-        name: name,
+        name,
+        phoneNumber,
+        address,
       }));
 
       Alert.alert("Success", "Profile updated successfully.");
-      setEditMode(false); // Exit edit mode after saving
+      setEditMode(false);
     } catch (error) {
       console.error("Error updating user profile:", error);
       Alert.alert("Error", "Failed to update profile.");
+    } finally {
+      setSaving(false);
     }
-  };
+  }, [name, phoneNumber, address]);
 
   if (loading) {
-    console.log("Loading user profile data...");
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-      </SafeAreaView>
-    );
-  }
-
-  if (!profileData) {
-    console.log("No profile data available...");
-    return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>No profile data found.</Text>
+        <ActivityIndicator size="large" color="#007BFF" />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      {editMode ? (
-        <>
-          <Text style={styles.profileText}>Edit Profile</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter your name"
-          />
-          <TextInput
-            style={[styles.input, styles.disabledInput]}
-            value={email}
-            editable={false} // Disable email input in edit mode
-            placeholder="Email (cannot be changed)"
-            keyboardType="email-address"
-          />
-          <View style={styles.buttonContainer}>
-            <Button title="Save" onPress={handleSave} />
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.scrollViewContent}>
+          <Text style={styles.headerText}>
+            {editMode ? "Edit Your Profile" : "About Me"}
+          </Text>
+
+          <View style={styles.profileImageContainer}>
+            <Image
+              source={
+                imageUri
+                  ? { uri: imageUri }
+                  : { uri: "https://via.placeholder.com/120" }
+              }
+              style={styles.profileImage}
+            />
             <Button
-              title="Cancel"
-              onPress={() => setEditMode(false)}
-              color="red"
+              title="Change Photo"
+              onPress={handleImagePick}
+              color="#4CAF50"
             />
           </View>
-        </>
-      ) : (
-        <>
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Name</Text>
-            <Text style={styles.fieldValue}>{profileData.name}</Text>
-          </View>
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Email</Text>
-            <Text style={styles.fieldValue}>{profileData.email}</Text>
-          </View>
-          <Button title="Edit Profile" onPress={() => setEditMode(true)} />
-        </>
-      )}
+
+          {editMode ? (
+            <>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Enter your full name"
+              />
+              <TextInput
+                style={[styles.input, styles.disabledInput]}
+                value={email}
+                placeholder="Your email address"
+                editable={false}
+              />
+              <TextInput
+                style={styles.input}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                placeholder="Enter your phone number"
+                keyboardType="phone-pad"
+              />
+              <TextInput
+                style={styles.input}
+                value={address.apt}
+                onChangeText={(apt) => setAddress({ ...address, apt })}
+                placeholder="Apartment (optional)"
+              />
+              <TextInput
+                style={styles.input}
+                value={address.street}
+                onChangeText={(street) => setAddress({ ...address, street })}
+                placeholder="Street"
+              />
+              <TextInput
+                style={styles.input}
+                value={address.city}
+                onChangeText={(city) => setAddress({ ...address, city })}
+                placeholder="City"
+              />
+              <TextInput
+                style={styles.input}
+                value={address.country}
+                onChangeText={(country) => setAddress({ ...address, country })}
+                placeholder="Country"
+              />
+              <TextInput
+                style={styles.input}
+                value={address.postalCode}
+                onChangeText={(postalCode) =>
+                  setAddress({ ...address, postalCode })
+                }
+                placeholder="Postal Code"
+              />
+              <View style={styles.buttonContainer}>
+                {saving ? (
+                  <ActivityIndicator size="small" color="#0000ff" />
+                ) : (
+                  <>
+                    <View style={styles.buttonWrapper}>
+                      <Button
+                        title="Save"
+                        onPress={handleSave}
+                        color="#4CAF50"
+                      />
+                    </View>
+                    <View style={styles.buttonWrapper}>
+                      <Button
+                        title="Cancel"
+                        onPress={() => setEditMode(false)}
+                        color="#F44336"
+                      />
+                    </View>
+                  </>
+                )}
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Profile details */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Name</Text>
+                <Text style={styles.fieldValue}>{profileData.name}</Text>
+              </View>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Email</Text>
+                <Text style={styles.fieldValue}>{profileData.email}</Text>
+              </View>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Phone Number</Text>
+                <Text style={styles.fieldValue}>{profileData.phoneNumber}</Text>
+              </View>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Address</Text>
+                <Text style={styles.fieldValue}>
+                  {profileData.address?.street
+                    ? `${profileData.address.street}, `
+                    : ""}
+                  {profileData.address?.city
+                    ? `${profileData.address.city}, `
+                    : ""}
+                  {profileData.address?.country
+                    ? `${profileData.address.country} `
+                    : ""}
+                  {profileData.address?.postalCode || ""}
+                </Text>
+              </View>
+              <Button title="Edit Profile" onPress={() => setEditMode(true)} />
+
+              {/* Order History Section */}
+              <Text style={styles.orderHistoryHeader}>Order History</Text>
+              {ordersLoading ? (
+                <ActivityIndicator size="large" color="#0000ff" />
+              ) : orderHistory.length === 0 ? (
+                <Text style={styles.noOrdersText}>No orders found.</Text>
+              ) : (
+                <FlatList
+                  data={orderHistory}
+                  keyExtractor={(item, index) => index.toString()}
+                  renderItem={({ item }) => (
+                    <View style={styles.orderCard}>
+                      <Image
+                        source={{
+                          uri: item.images?.[0] || "default_img_url",
+                        }}
+                        style={styles.productImage}
+                      />
+                      <View style={styles.productDetails}>
+                        <Text style={styles.productTitle}>{item.name}</Text>
+                        <Text>Size: {item.size || "N/A"}</Text>
+                        <Text>Amount: ${item.price}</Text>
+                        <Text>Status: {item.orderStatus}</Text>
+                      </View>
+                    </View>
+                  )}
+                  scrollEnabled={false}
+                />
+              )}
+            </>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -154,58 +392,93 @@ const Profile = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#f9f9f9",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  fieldContainer: {
-    width: "100%",
-    marginBottom: 20,
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
+  scrollViewContent: {
+    padding: 20,
   },
-  label: {
-    fontSize: 16,
-    color: "#888",
-  },
-  fieldValue: {
-    fontSize: 18,
-    color: "#000",
+  headerText: {
+    fontSize: 24,
     fontWeight: "bold",
+    color: "#007BFF",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  profileImageContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 10,
   },
   input: {
     height: 40,
-    borderColor: "gray",
+    borderColor: "#ccc",
     borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    width: "80%",
-    backgroundColor: "#fff",
     borderRadius: 5,
+    marginBottom: 10,
+    paddingLeft: 10,
   },
   disabledInput: {
-    backgroundColor: "#e0e0e0", // Greyed-out background to indicate disabled field
+    backgroundColor: "#f5f5f5",
   },
   buttonContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "80%",
-    marginTop: 10,
+    marginTop: 20,
   },
-  errorText: {
-    color: "red",
-    fontSize: 18,
-  },
-  profileText: {
-    fontSize: 18,
+  buttonWrapper: {
     marginBottom: 10,
+  },
+  fieldContainer: {
+    marginBottom: 10,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#007BFF",
+  },
+  fieldValue: {
+    fontSize: 16,
+    color: "#555",
+  },
+  orderHistoryHeader: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#007BFF",
+    marginVertical: 20,
+  },
+  noOrdersText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#555",
+  },
+  orderCard: {
+    flexDirection: "row",
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    marginBottom: 10,
+    backgroundColor: "#f9f9f9",
+  },
+  productImage: {
+    width: 60,
+    height: 60,
+    marginRight: 10,
+    borderRadius: 5,
+  },
+  productDetails: {
+    flex: 1,
+  },
+  productTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
 

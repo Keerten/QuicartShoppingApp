@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   TextInput,
@@ -6,13 +6,60 @@ import {
   StyleSheet,
   Pressable,
   Alert,
+  Switch,
+  Image,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { auth } from "../Configs/FirebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import Icon from "../assets/adaptive-icon.png";
 
 const SignInView = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    loadCredentials();
+  }, []);
+
+  const loadCredentials = async () => {
+    try {
+      const savedEmail = await AsyncStorage.getItem("email");
+      const savedPassword = await AsyncStorage.getItem("password");
+      if (savedEmail && savedPassword) {
+        setEmail(savedEmail);
+        setPassword(savedPassword);
+        setRememberMe(true);
+      }
+    } catch (error) {
+      console.log("Error loading credentials", error);
+    }
+  };
+
+  const saveCredentials = async () => {
+    if (rememberMe) {
+      try {
+        await AsyncStorage.setItem("email", email);
+        await AsyncStorage.setItem("password", password);
+      } catch (error) {
+        console.log("Error saving credentials", error);
+      }
+    } else {
+      try {
+        await AsyncStorage.removeItem("email");
+        await AsyncStorage.removeItem("password");
+      } catch (error) {
+        console.log("Error clearing credentials", error);
+      }
+    }
+  };
 
   const validateInputs = () => {
     if (!email.includes("@")) {
@@ -39,7 +86,8 @@ const SignInView = ({ navigation }) => {
         password
       );
       console.log("Successfully logged in:", userCredentials.user.email);
-      navigation.replace("Tabs"); // Use replace instead of navigate to avoid going back to sign-in
+      await saveCredentials();
+      navigation.replace("Tabs");
     } catch (error) {
       handleSignInError(error);
     }
@@ -78,48 +126,88 @@ const SignInView = ({ navigation }) => {
     navigation.navigate("SignUp");
   };
 
+  const onForgotPasswordClicked = () => {
+    navigation.navigate("ForgotPassword");
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign in to Quicart Account!</Text>
-      <TextInput
-        style={styles.inputStyle}
-        placeholder="Email"
-        textContentType="emailAddress"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        returnKeyType="next"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.inputStyle}
-        placeholder="Password"
-        textContentType="password"
-        secureTextEntry={true}
-        autoCapitalize="none"
-        returnKeyType="done"
-        value={password}
-        onChangeText={setPassword}
-      />
-      <Pressable style={styles.buttonStyle} onPress={onSignInClicked}>
-        <Text style={styles.buttonTextStyle}>Sign In</Text>
-      </Pressable>
-      <Pressable style={styles.buttonStyle} onPress={onSignUpClicked}>
-        <Text style={styles.buttonTextStyle}>Create a New Account</Text>
-      </Pressable>
-    </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView contentContainerStyle={styles.scrollView}>
+          <View style={styles.container}>
+            <Image source={Icon} style={styles.iconStyle} />
+            <Text style={styles.title}>Sign in to Quicart Account!</Text>
+            <TextInput
+              style={styles.inputStyle}
+              placeholder="Email"
+              textContentType="emailAddress"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              returnKeyType="next"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <TextInput
+              style={styles.inputStyle}
+              placeholder="Password"
+              textContentType="password"
+              secureTextEntry={true}
+              autoCapitalize="none"
+              returnKeyType="done"
+              value={password}
+              onChangeText={setPassword}
+            />
+
+            <View style={styles.rememberMeContainer}>
+              <Text style={styles.rememberMeText}>Remember Me</Text>
+              <Switch value={rememberMe} onValueChange={setRememberMe} />
+            </View>
+
+            <Pressable style={styles.buttonStyle} onPress={onSignInClicked}>
+              <Text style={styles.buttonTextStyle}>Sign In</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.clearButtonStyle}
+              onPress={onForgotPasswordClicked}
+            >
+              <Text style={styles.clearButtonTextStyle}>Forgot Password?</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.clearButtonStyle}
+              onPress={onSignUpClicked}
+            >
+              <Text style={styles.clearButtonTextStyle2}>
+                Don't have an account? Sign Up
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 };
 
 export default SignInView;
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f2f2f2",
     padding: 20,
+  },
+  iconStyle: {
+    width: 350,
+    height: 350,
   },
   title: {
     fontSize: 28,
@@ -151,5 +239,29 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#fff",
     fontSize: 20,
+  },
+  clearButtonStyle: {
+    marginBottom: 20,
+  },
+  clearButtonTextStyle: {
+    color: "#007BFF",
+    fontSize: 16,
+  },
+  clearButtonTextStyle2: {
+    color: "#FFA500",
+    fontSize: 16,
+  },
+  rememberMeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    width: "100%",
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  rememberMeText: {
+    fontSize: 16,
+    color: "#333",
+    marginRight: 10,
   },
 });

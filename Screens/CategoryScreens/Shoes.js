@@ -1,247 +1,156 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, Alert, ScrollView, ImageBackground, Button, KeyboardAvoidingView, Platform } from 'react-native';
-import DropDownPicker from 'react-native-dropdown-picker'; // Alternative dropdown
-import { db } from '../../Configs/FirebaseConfig';
-import { collection, addDoc } from 'firebase/firestore';
-import * as ImagePicker from 'expo-image-picker';
+import React, { useState } from "react";
+import { Text, TextInput, Button, ScrollView, Alert } from "react-native";
+import { db } from "../../Configs/FirebaseConfig"; // Adjust the path as necessary
+import { collection, addDoc } from "firebase/firestore";
+import { Picker } from "@react-native-picker/picker";
+import sharedStyles from "./styles"; // Adjust the path as necessary
 
 const Shoes = () => {
-  const [mainCategory, setMainCategory] = useState('Men');
-  const [shoeCategory, setShoeCategory] = useState('Sneakers');
-  const [shoeName, setShoeName] = useState('');
-  const [price, setPrice] = useState('');
-  const [description, setDescription] = useState('');
-  const [inventory, setInventory] = useState({});
-  const [imageUris, setImageUris] = useState([]);
-  const [openMainCategory, setOpenMainCategory] = useState(false);
-  const [openShoeCategory, setOpenShoeCategory] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [gender, setGender] = useState("Men"); // Default gender
+  const [shoeCategory, setShoeCategory] = useState("Sneakers"); // Default shoe category
+  const [price, setPrice] = useState("");
+  const [inventory, setInventory] = useState({
+    7: "",
+    8: "",
+    9: "",
+    10: "",
+  });
+  const [loading, setLoading] = useState(false);
 
   const shoeCategories = {
-    Men: ['Sneakers', 'Boots', 'Loafers', 'Sandals'],
-    Women: ['Flats', 'Heels', 'Sneakers', 'Boots'],
-    Kids: ['Sneakers', 'Sandals', 'Slippers'],
-  };
-
-  const sizesByCategory = {
-    Men: [7, 8, 9, 10, 11, 12],
-    Women: [5, 6, 7, 8, 9, 10],
-    Kids: [1, 2, 3, 4, 5, 6],
+    Men: ["Sneakers", "Boots", "Loafers", "Sandals"],
+    Women: ["Flats", "Heels", "Sneakers", "Boots"],
+    Kids: ["Sneakers", "Sandals", "Slippers"],
   };
 
   const handleSubmit = async () => {
-    if (!shoeName || !Object.keys(inventory).length || !price || !description || !imageUris.length) {
-      Alert.alert('Error', 'Please fill all fields and upload images');
+    if (!name || !description || !price) {
+      Alert.alert("Error", "Please fill all fields");
       return;
     }
 
+    const inventoryValues = Object.values(inventory);
+    if (inventoryValues.some((value) => isNaN(value) || parseInt(value) < 0)) {
+      Alert.alert("Error", "Inventory values must be non-negative numbers");
+      return;
+    }
+
+    if (isNaN(price) || parseFloat(price) < 0) {
+      Alert.alert("Error", "Price must be a non-negative number");
+      return;
+    }
+
+    setLoading(true); // Show loading state
+
     try {
-      const categoryPath = `Product/Shoes/${mainCategory}`;
-      const uid = `${mainCategory}_${shoeCategory}_${Date.now()}`;
+      const categoryPath = `Shoes`; // Collection path
 
-      await addDoc(collection(db, categoryPath), {
-        uid,
-        shoeCategory,
-        shoeName,
-        sizes: inventory,
-        price: parseFloat(price),
+      const productData = {
+        name,
         description,
-        images: imageUris,
-      });
+        category: "Shoes",
+        subCategory: shoeCategory,
+        gender: gender,
+        price: parseFloat(price),
+        images: [], // Assuming you will add images separately
+        inventory: {
+          7: parseInt(inventory[7]) || 0,
+          8: parseInt(inventory[8]) || 0,
+          9: parseInt(inventory[9]) || 0,
+          10: parseInt(inventory[10]) || 0,
+        },
+      };
 
-      Alert.alert('Success', 'Shoe item added successfully!');
-      setShoeName('');
-      setInventory({});
-      setPrice('');
-      setDescription('');
-      setImageUris([]);
+      await addDoc(collection(db, categoryPath), productData); // Add document to the collection
+      Alert.alert("Success", "Shoe item added successfully!");
+      resetForm();
     } catch (error) {
       console.error("Error adding document: ", error);
-      Alert.alert('Error', 'Could not add item. Please try again.');
+      Alert.alert("Error", "Could not add item. Please try again.");
+    } finally {
+      setLoading(false); // Hide loading state
     }
   };
 
-  const handlePickImages = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setImageUris([...imageUris, ...result.assets.map((asset) => asset.uri)]);
-    }
+  const resetForm = () => {
+    setName("");
+    setDescription("");
+    setPrice("");
+    setInventory({ 7: "", 8: "", 9: "", 10: "" });
+    setGender("Men"); // Reset to default category
+    setShoeCategory("Sneakers"); // Reset to default category
   };
 
   return (
-    <ImageBackground 
-      source={{ uri: 'https://i.pinimg.com/564x/e8/c8/ef/e8c8ef9d9e9f8c292ad1c0c7de254f55.jpg' }} 
-      style={styles.background}
-    >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+    <ScrollView contentContainerStyle={sharedStyles.container}>
+      <Text style={sharedStyles.title}>Add Shoe Product</Text>
+
+      <TextInput
+        style={sharedStyles.input}
+        onChangeText={setName}
+        value={name}
+        placeholder="Product Name"
+      />
+
+      <TextInput
+        style={sharedStyles.input}
+        onChangeText={setDescription}
+        value={description}
+        placeholder="Product Description"
+        multiline
+      />
+
+      <Text style={sharedStyles.label}>Gender :</Text>
+      <Picker
+        selectedValue={gender}
+        onValueChange={(itemValue) => {
+          setGender(itemValue);
+          setShoeCategory(shoeCategories[itemValue][0]); // Set default shoe category when main category changes
+        }}
       >
-        <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.card}>
-            <Text style={styles.title}>Add Shoe Details</Text>
+        {Object.keys(shoeCategories).map((category) => (
+          <Picker.Item key={category} label={category} value={category} />
+        ))}
+      </Picker>
 
-            {/* Dropdown for Main Category */}
-            <Text style={styles.label}>Select Main Category:</Text>
-            <DropDownPicker
-              open={openMainCategory}
-              value={mainCategory}
-              items={[
-                { label: 'Men', value: 'Men' },
-                { label: 'Women', value: 'Women' },
-                { label: 'Kids', value: 'Kids' },
-              ]}
-              setOpen={setOpenMainCategory}
-              setValue={setMainCategory}
-              style={styles.picker}
-              zIndex={5000}
-            />
+      <Text style={sharedStyles.label}>Shoe Category:</Text>
+      <Picker selectedValue={shoeCategory} onValueChange={setShoeCategory}>
+        {shoeCategories[gender].map((category) => (
+          <Picker.Item key={category} label={category} value={category} />
+        ))}
+      </Picker>
 
-            <Text style={styles.label}>Select Shoe Type:</Text>
-            <DropDownPicker
-              open={openShoeCategory}
-              value={shoeCategory}
-              items={shoeCategories[mainCategory].map((category) => ({ label: category, value: category }))}
-              setOpen={setOpenShoeCategory}
-              setValue={setShoeCategory}
-              style={styles.picker}
-              zIndex={4000}
-            />
+      <TextInput
+        style={sharedStyles.input}
+        onChangeText={setPrice}
+        value={price}
+        placeholder="Price"
+        keyboardType="numeric"
+      />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Shoe Name"
-              value={shoeName}
-              onChangeText={setShoeName}
-              placeholderTextColor="#888"
-            />
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Description"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              placeholderTextColor="#888"
-            />
+      {/* Inventory Inputs */}
+      {[7, 8, 9, 10].map((size) => (
+        <TextInput
+          key={size}
+          style={sharedStyles.input}
+          onChangeText={(value) => {
+            setInventory((prev) => ({ ...prev, [size]: value }));
+          }}
+          value={inventory[size]}
+          placeholder={`Stock for size ${size}`}
+          keyboardType="numeric"
+        />
+      ))}
 
-            {sizesByCategory[mainCategory].map((size) => (
-              <TextInput
-                key={size}
-                style={styles.input}
-                placeholder={`Inventory for size ${size}`}
-                keyboardType="numeric"
-                value={inventory[size]}
-                onChangeText={(value) => setInventory({ ...inventory, [size]: value })}
-                placeholderTextColor="#888"
-              />
-            ))}
-
-            <TextInput
-              style={styles.input}
-              placeholder="Price"
-              keyboardType="numeric"
-              value={price}
-              onChangeText={setPrice}
-              placeholderTextColor="#888"
-            />
-
-            {/* Image Picker */}
-            <Button title="Pick Images" onPress={handlePickImages} />
-
-            <Pressable style={styles.button} onPress={handleSubmit}>
-              <Text style={styles.buttonText}>Submit</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </ImageBackground>
+      <Button
+        title={loading ? "Adding..." : "Add Product"}
+        onPress={handleSubmit}
+        disabled={loading}
+      />
+    </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: 'cover',
-    backgroundColor: '#f5f5f5',
-  },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  card: {
-    backgroundColor: '#ffffffcc',
-    borderRadius: 20,
-    padding: 25,
-    width: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  title: {
-    fontSize: 26,
-    marginBottom: 20,
-    color: '#333',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 5,
-    color: '#666',
-    fontWeight: '500',
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 15,
-  },
-  input: {
-    width: '100%',
-    height: 50,
-    marginVertical: 10,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    backgroundColor: '#f8f8f8',
-    color: '#333',
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  button: {
-    backgroundColor: '#6AB7A8',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    shadowColor: '#6AB7A8',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-});
 
 export default Shoes;
