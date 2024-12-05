@@ -71,38 +71,43 @@ const Profile = () => {
   }, [fetchOrderHistory]);
 
   const handleImagePick = async () => {
-    console.log("Requesting media library permissions...");
-
-    // Request permission to access the media library
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      Alert.alert(
-        "Permission required",
-        "Access to the media library is required!"
-      );
-      return;
-    }
-
-    console.log("Permission granted, launching image picker...");
-
-    // Launch the image picker
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false, // Ensure no cropping/editing
-      quality: 1,
-    });
-
-    if (result.canceled || !result.assets?.[0]?.uri) {
-      console.log("User canceled or no valid URI returned.");
-      return;
-    }
-
-    const selectedImageUri = result.assets[0].uri; // Use the cache URI directly
-    console.log("Selected image URI:", selectedImageUri);
-
     try {
+      console.log("Requesting media library permissions...");
+
+      // Request permission to access the media library
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(
+          "Permission Required",
+          "Access to the media library is required!"
+        );
+        return;
+      }
+
+      console.log("Permission granted, launching image picker...");
+
+      // Launch the image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true, // Allows editing (cropping, etc.)
+        quality: 0.5, // Compress the image for faster uploads
+      });
+
+      if (result.canceled || !result.assets?.[0]?.uri) {
+        console.log("User canceled or no valid URI returned.");
+        return;
+      }
+
+      const selectedImageUri = result.assets[0].uri;
+      console.log("Selected image URI:", selectedImageUri);
+
+      // Ensure the URI format is valid
+      if (!selectedImageUri.startsWith("file://")) {
+        Alert.alert("Error", "Invalid file URI.");
+        return;
+      }
+
       // Fetch the file as a Blob
       const response = await fetch(selectedImageUri);
       const blob = await response.blob();
@@ -116,8 +121,8 @@ const Profile = () => {
         return;
       }
 
-      // Extract file extension and create storage reference
-      const fileExtension = selectedImageUri.split(".").pop();
+      // Extract file extension and create a unique filename
+      const fileExtension = selectedImageUri.split(".").pop() || "jpg";
       const fileName = `${userId}.${fileExtension}`;
       const storageRef = ref(storage, `profile_photos/${fileName}`);
 

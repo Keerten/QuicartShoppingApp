@@ -7,10 +7,18 @@ import {
   Pressable,
   Alert,
   Switch,
+  Image,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { auth } from "../Configs/FirebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
+import Icon from "../assets/adaptive-icon.png";
 
 const SignInView = ({ navigation }) => {
   const [email, setEmail] = useState("");
@@ -123,64 +131,83 @@ const SignInView = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign in to Quicart Account!</Text>
-      <TextInput
-        style={styles.inputStyle}
-        placeholder="Email"
-        textContentType="emailAddress"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        returnKeyType="next"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.inputStyle}
-        placeholder="Password"
-        textContentType="password"
-        secureTextEntry={true}
-        autoCapitalize="none"
-        returnKeyType="done"
-        value={password}
-        onChangeText={setPassword}
-      />
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView contentContainerStyle={styles.scrollView}>
+          <View style={styles.container}>
+            <Image source={Icon} style={styles.iconStyle} />
+            <Text style={styles.title}>Sign in to Quicart Account!</Text>
+            <TextInput
+              style={styles.inputStyle}
+              placeholder="Email"
+              textContentType="emailAddress"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              returnKeyType="next"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <TextInput
+              style={styles.inputStyle}
+              placeholder="Password"
+              textContentType="password"
+              secureTextEntry={true}
+              autoCapitalize="none"
+              returnKeyType="done"
+              value={password}
+              onChangeText={setPassword}
+            />
 
-      {/* Remember Me Toggle */}
-      <View style={styles.rememberMeContainer}>
-        <Text style={styles.rememberMeText}>Remember Me</Text>
-        <Switch value={rememberMe} onValueChange={setRememberMe} />
-      </View>
+            <View style={styles.rememberMeContainer}>
+              <Text style={styles.rememberMeText}>Remember Me</Text>
+              <Switch value={rememberMe} onValueChange={setRememberMe} />
+            </View>
 
-      <Pressable style={styles.buttonStyle} onPress={onSignInClicked}>
-        <Text style={styles.buttonTextStyle}>Sign In</Text>
-      </Pressable>
+            <Pressable style={styles.buttonStyle} onPress={onSignInClicked}>
+              <Text style={styles.buttonTextStyle}>Sign In</Text>
+            </Pressable>
 
-      <Pressable
-        style={styles.clearButtonStyle}
-        onPress={onForgotPasswordClicked}
-      >
-        <Text style={styles.clearButtonTextStyle}>Forgot Password?</Text>
-      </Pressable>
+            <Pressable
+              style={styles.clearButtonStyle}
+              onPress={onForgotPasswordClicked}
+            >
+              <Text style={styles.clearButtonTextStyle}>Forgot Password?</Text>
+            </Pressable>
 
-      <Pressable style={styles.clearButtonStyle} onPress={onSignUpClicked}>
-        <Text style={styles.clearButtonTextStyle2}>
-          Don't have an account? Sign Up
-        </Text>
-      </Pressable>
-    </View>
+            <Pressable
+              style={styles.clearButtonStyle}
+              onPress={onSignUpClicked}
+            >
+              <Text style={styles.clearButtonTextStyle2}>
+                Don't have an account? Sign Up
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 };
 
 export default SignInView;
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f2f2f2",
     padding: 20,
+  },
+  iconStyle: {
+    width: 350,
+    height: 350,
   },
   title: {
     fontSize: 28,
