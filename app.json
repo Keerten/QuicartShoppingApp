@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "QuicartShopping",
-    "slug": "QuicartShopping",
+    "slug": "quicartshopping",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -27,8 +27,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "0d3f174d-d50f-4b79-bfa7-51b453e10fce"
+        "projectId": "5ce76a66-2d2c-4915-81ab-e59cd0b2d418"
       }
-    }
+    },
+    "owner": "keerten"
   }
 }
